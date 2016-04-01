@@ -138,9 +138,6 @@ int main(int argc, char **argv)
     // Save camera trajectory
     SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
 
-    // Map points x y z
-    SaveMapPoints(SLAM.GetMap(), "MapPoints.txt");
-
     return 0;
 }
 
