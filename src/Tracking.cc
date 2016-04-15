@@ -1085,8 +1085,6 @@ void Tracking::CreateNewKeyFrame()
 
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
 
-    mpMapReconstructor->InsertKeyFrame(pKF);
-
     mpReferenceKF = pKF;
     mCurrentFrame.mpReferenceKF = pKF;
 
@@ -1153,6 +1151,8 @@ void Tracking::CreateNewKeyFrame()
     }
 
     mpLocalMapper->InsertKeyFrame(pKF);
+
+    mpMapReconstructor->InsertKeyFrame(pKF);
 
     mpLocalMapper->SetNotStop(false);
 
