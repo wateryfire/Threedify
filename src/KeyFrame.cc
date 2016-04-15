@@ -54,6 +54,9 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     }
 
     SetPose(F.mTcw);    
+
+    mRefImgGray = F.mRefImgGray;
+    mRefImgDepth = F.mRefImgDepth;
 }
 
 void KeyFrame::ComputeBoW()

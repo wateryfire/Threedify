@@ -35,6 +35,7 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 #include "Viewer.h"
+#include "MapReconstructor.h"
 
 namespace ORB_SLAM2
 {
@@ -45,6 +46,7 @@ class Map;
 class Tracking;
 class LocalMapping;
 class LoopClosing;
+class MapReconstructor;
 
 class System
 {
@@ -136,6 +138,10 @@ private:
     // a pose graph optimization and full bundle adjustment (in a new thread) afterwards.
     LoopClosing* mpLoopCloser;
 
+    // Map Reconstructor. It reconstructs the map during the tracking time and
+    // makes the full map reconstruction at the end.
+    MapReconstructor* mpMapReconstructor;
+
     // The viewer draws the map and the current camera pose. It uses Pangolin.
     Viewer* mpViewer;
 
@@ -147,6 +153,8 @@ private:
     std::thread* mptLocalMapping;
     std::thread* mptLoopClosing;
     std::thread* mptViewer;
+    std::thread* mptMapReconstructorDequeue;
+    std::thread* mptMapReconstructorMaking;
 
     // Reset flag
     std::mutex mMutexReset;

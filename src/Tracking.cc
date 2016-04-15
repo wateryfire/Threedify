@@ -163,6 +163,11 @@ void Tracking::SetViewer(Viewer *pViewer)
     mpViewer=pViewer;
 }
 
+void Tracking::SetMapReconstructor(MapReconstructor *pMapReconstructor)
+{
+	mpMapReconstructor=pMapReconstructor;
+}
+
 
 cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRectRight, const double &timestamp)
 {
@@ -1079,6 +1084,8 @@ void Tracking::CreateNewKeyFrame()
         return;
 
     KeyFrame* pKF = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
+
+    mpMapReconstructor->InsertKeyFrame(pKF);
 
     mpReferenceKF = pKF;
     mCurrentFrame.mpReferenceKF = pKF;

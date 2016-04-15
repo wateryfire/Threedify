@@ -94,6 +94,15 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
+    //Initialize the Map Reconstruction threads and launch
+    mpMapReconstructor = new MapReconstructor(mpMap, mpKeyFrameDatabase, mpVocabulary, mpTracker);
+
+    mptMapReconstructorDequeue = new thread(&ORB_SLAM2::MapReconstructor::RunToProcessKeyFrameQueue, mpMapReconstructor);
+    mpMapReconstructor->StartKeyFrameQueueProcess();
+
+    mptMapReconstructorMaking = new thread(&ORB_SLAM2::MapReconstructor::RunToReconstructMap, mpMapReconstructor);
+    mpMapReconstructor->StartRealTimeMapReconstruction();
+
     //Initialize the Viewer thread and launch
     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
     if(bUseViewer)
@@ -104,6 +113,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //Set pointers between threads
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
+    mpTracker->SetMapReconstructor(mpMapReconstructor);
 
     mpLocalMapper->SetTracker(mpTracker);
     mpLocalMapper->SetLoopCloser(mpLoopCloser);
@@ -279,6 +289,10 @@ void System::Shutdown()
     }
 
     pangolin::BindToContext("ORB-SLAM2: Map Viewer");
+
+    // Stop some finished tasks for map reconstruction job
+    mpMapReconstructor->StopKeyFrameQueueProcess();
+    mpMapReconstructor->StopRealTimeMapReconstruction();
 }
 
 void System::SaveTrajectoryTUM(const string &filename)

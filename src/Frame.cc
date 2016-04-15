@@ -123,6 +123,10 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     // Frame ID
     mnId=nNextId++;
 
+    // Referenced images
+    mRefImgGray = imGray;
+    mRefImgDepth = imDepth;
+
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();
     mfScaleFactor = mpORBextractorLeft->GetScaleFactor();    

@@ -170,6 +170,10 @@ public:
     // Reference Keyframe.
     KeyFrame* mpReferenceKF;
 
+    // Reference images
+    cv::Mat mRefImgGray;
+    cv::Mat mRefImgDepth;
+
     // Scale pyramid info.
     int mnScaleLevels;
     float mfScaleFactor;
