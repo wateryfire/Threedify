@@ -65,6 +65,14 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
 		cout << "MapReconstructor: Release  gray image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
 		cout << "MapReconstructor: Release depth image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
 
+		{
+			// Add to the second queue for the real-time map reconstruction
+		    unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
+		    if(currentKeyFrame!=NULL && currentKeyFrame->mnId!=0)
+		    {
+		    	mlpKFQueueForReonstruction.push_back(currentKeyFrame);
+		    }
+		}
 
 	    nCounter++;
 	}
@@ -90,6 +98,8 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
 void MapReconstructor::RunToReconstructMap()
 {
+	KeyFrame* currentKeyFrame=NULL;
+
 	while(mStatus_RealTimeMapReconstruction!=STARTED)
 	{
 		usleep(3000);
@@ -99,8 +109,22 @@ void MapReconstructor::RunToReconstructMap()
 
 	while(mStatus_RealTimeMapReconstruction!=STOPPED)
 	{
-		// TODO: Remove the sleep process, once the real code is implemented.
-		usleep(10000);
+		//Get Mutex-lock to access the queue of key frames.
+	    {
+	        unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
+	        if(mlpKFQueueForReonstruction.empty()==true)
+	        {
+	        	continue;
+	        }
+
+	        currentKeyFrame = mlpKFQueueForReonstruction.front();
+	        mlpKFQueueForReonstruction.pop_front();
+	    }
+
+	    cout << "MapReconstructor: Reconstructing map from the key frame (FrameId: " << currentKeyFrame->mnId << ")." << endl;
+
+		// TODO: To implement the code for the real-time map reconstruction.
+		//usleep(10000);
 	}
 
 	cout << "MapReconstructor: End thread execution for map reconstruction during SLAM tracking." << endl;

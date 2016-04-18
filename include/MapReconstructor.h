@@ -60,6 +60,9 @@ private:
     std::list<KeyFrame*> mlpKeyFrameQueue;
     std::mutex mMutexForKeyFrameQueue;
 
+    std::list<KeyFrame*> mlpKFQueueForReonstruction;
+    std::mutex mMutexForKFQueueForReonstruction;
+
 	//To indicate the current status of jobs.
 	JobStatus mStatus_KeyFrameQueueProcess;
 	JobStatus mStatus_RealTimeMapReconstruction;
