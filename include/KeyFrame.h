@@ -93,6 +93,7 @@ public:
     // KeyPoint functions
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r) const;
     cv::Mat UnprojectStereo(int i);
+    cv::Mat UnprojectStereo(float u, float v, float z);
 
     // Image
     bool IsInImage(const float &x, const float &y) const;
@@ -191,6 +192,7 @@ public:
     // Reference images
     cv::Mat mRefImgGray;
     cv::Mat mRefImgDepth;
+    cv::Mat mRefImgGradient;
 
     // The following variables need to be accessed trough a mutex to be thread safe.
 protected:

@@ -68,3 +68,13 @@ Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
 
+#--------------------------------------------------------------------------------------------
+# Re-construction Parameters
+#--------------------------------------------------------------------------------------------
+ReConstruction.KN: 7
+ReConstruction.sigmaI: 20.0
+ReConstruction.lambdaG: 120.0
+ReConstruction.lambdaL: 80.0
+ReConstruction.lambdaThe: 45.0
+ReConstruction.lambdaN: 3
+ReConstruction.theta: 0.23
