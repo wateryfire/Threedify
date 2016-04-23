@@ -297,18 +297,6 @@ void MapReconstructor::RunToReconstructMap()
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
-
-//            {
-//                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
-//                for(int i=0;i<2;i++)
-//                {
-//                    if(mlpKFQueueForReonstruction.empty())
-//                    {
-//                        break;
-//                    }
-//                    mlpKFQueueForReonstruction.pop_front();
-//                }
-//            }
         }
     }
 
@@ -331,8 +319,9 @@ bool MapReconstructor::isRealTimeReconstructionEnd()
 
 bool MapReconstructor::CheckNewKeyFrames(KeyFrame* currentKeyFrame)
 {
-    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
-    return (int)vpNeighKFs.size() >= kN;
+    return currentKeyFrame->mnId > 7;
+    //const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
+    //return (int)vpNeighKFs.size() >= kN;
 }
 
 void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
@@ -421,14 +410,14 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     cout<<"epipolarConstraientSearch"<<endl;
     const long mnid1 = pKF1->mnId, mnid2 = pKF2->mnId;
 //    vMatchedIndices.clear();
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+    map<Point2f,RcKeyPoint,Point2fLess> keyPoints1 = keyframeKeyPointsMap[mnid1];
+    map<Point2f,RcKeyPoint,Point2fLess> keyPoints2 = keyframeKeyPointsMap[mnid2];
 
 //    float medianRotation = calcInPlaneRotation(pKF1,pKF2);
     float medianRotation = calcMedianRotation(pKF1,pKF2);
-//    float tho0, sigma0;
-//    calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
-//    cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
+    float tho0, sigma0;
+    calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
+    cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
 //    const float width = pKF2->mRefImgGray.rows, height = pKF2->mRefImgGray.cols;
     const float width = pKF2->mRefImgGray.cols, height = pKF2->mRefImgGray.rows;
@@ -444,7 +433,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         if(kp1.fused)
         {
-//            cout<<"kp1 already fused"<<endl;
+cout<<"kp1.fused"<<endl;
             continue;
         }
 
@@ -460,11 +449,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
         const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
-
-        if(a==0&&b==0)
-        {
-            continue;
-        }
 
         /*
 //        cout<<"move on epipolar line"<<endl;
@@ -539,7 +523,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             Point2f p2 = kpit2.first;
 
             if(kp2.fused){
-//                cout<<"kp1 already fused"<<endl;
+cout<<"kp1.fused"<<endl;
                 continue;
             }
 
@@ -549,17 +533,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float gradient2 = kp2.gradient;
 
             // search on epipolar line
-//            if(!CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
-//                continue;
-//            }
-            const float num = a*kp2.pt.x+b*kp2.pt.y+c;
-
-            const float den = a*a+b*b;
-
-            const float dsqr = num*num/den;
-
-            if(!(dsqr<3.84*pKF2->mvLevelSigma2[kp2.octave]))
-            {
+            if(!CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
                 continue;
             }
 
@@ -656,8 +630,11 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float rhoLower = calInverseDepthEstimation(kp1, u0Star -  sigmaU0Star, pKF1, pKF2);
             float sigmaRho = max(abs(rhoUpper - rho),abs(rhoLower - rho));
 
-//            cout<<"add hypo"<<(1.0/rho)<<endl;
-            kp1.addHypo(rho, sigmaRho,&match);
+            //cout<<"add hypo"<<(1.0/rho)<<endl;
+            //kp1.addHypo(rho, sigmaRho,&match);   
+            //kp1.hypothesesRelation[&match] = kp1.hypotheses.size();
+            //kp1.hypotheses.push_back(make_pair(rho, sigmaRho));
+//cout<<"size "<<kp1.hypotheses.size()<<endl;
         }
     }
 }
@@ -884,8 +861,8 @@ float MapReconstructor::calcInPlaneRotation(KeyFrame* pKF1,KeyFrame* pKF2){
 float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
 {
 
-    const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF1->mnId);
-    const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(pKF2->mnId);
+    const map<Point2f,RcKeyPoint,Point2fLess> keyPoints1 = keyframeKeyPointsMap[pKF1->mnId];
+    const map<Point2f,RcKeyPoint,Point2fLess> keyPoints2 = keyframeKeyPointsMap[pKF2->mnId];
 
     const std::vector<cv::KeyPoint> mvKeys1 = pKF1->mvKeys;
     const std::vector<cv::KeyPoint> mvKeys2 = pKF2->mvKeys;
@@ -982,7 +959,7 @@ bool MapReconstructor::cordInImageBounds(float x, float y, int width, int height
 void MapReconstructor::fuseHypo(KeyFrame* pKF)
 {
     cout<< "enter fuse"<<endl;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(pKF->mnId);
+    map<Point2f,RcKeyPoint,Point2fLess> keyPoints = keyframeKeyPointsMap[pKF->mnId];
     for(auto &kpit : keyPoints)
     {
         RcKeyPoint &kp1 = kpit.second;
@@ -991,68 +968,63 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
 //            cout<<"already fs"<<endl;
             continue;
         }
-        //        cout<<kp1.hypotheses.size()<<endl;
         vector<pair<float, float>> hypos = kp1.hypotheses;
-        int total = hypos.size();
-        if(total==0)
+        if((int)hypos.size() <= lambdaN)
         {
-//            continue;
+            cout<<"hypos "<<hypos.size()<<endl;
+            continue;
         }
-        if(total > lambdaN)
+        float sunTho = 0, sunSigmaInv = 0;
+        set<int> nearest;
+        // ka square check between every two hypotheses
+        for (size_t i = 0; i < hypos.size(); ++i)
         {
-            float sunTho = 0, sunSigmaInv = 0;
-            set<int> nearest;
-            // ka square check between every two hypotheses
-            for (int i = 0; i < total; i++)
+            for (size_t j = i + 1; j < hypos.size(); ++j)
             {
-                for (int j = i + 1; j < total; j++)
+                pair<float, float> a = hypos[i], b = hypos[j];
+                float diffSqa = (a.first - b.first) * (a.first - b.first);
+                float sigmaSqi = a.second * a.second, sigmaSqj = b.second*b.second;
+                if((diffSqa/sigmaSqi+ diffSqa/sigmaSqj) < 5.99)
                 {
-                    pair<float, float> a = hypos[i], b = hypos[j];
-                    float diffSqa = (a.first - b.first) * (a.first - b.first);
-                    float sigmaSqi = a.second * a.second, sigmaSqj = b.second*b.second;
-                    if((diffSqa/sigmaSqi+ diffSqa/sigmaSqj) < 5.99)
+                    if(!nearest.count(i))
                     {
-                        if(!nearest.count(i))
-                        {
-                            sunTho += (a.first/sigmaSqi);
-                            sunSigmaInv += (1.0/sigmaSqi);
-                            nearest.insert(i);
-                            //                            cout<<"insert "<<i<<endl;
-                        }
-                        if(!nearest.count(j))
-                        {
-                            sunTho += (b.first/sigmaSqj);
-                            sunSigmaInv += (1.0/sigmaSqj);
-                            nearest.insert(j);
-                            //                            cout<<"insert "<<j<<endl;
-                        }
+                        sunTho += (a.first/sigmaSqi);
+                        sunSigmaInv += (1.0/sigmaSqi);
+                        nearest.insert(i);
+                        cout<<"insert "<<i<<endl;
+                    }
+                    if(!nearest.count(j))
+                    {
+                        sunTho += (b.first/sigmaSqj);
+                        sunSigmaInv += (1.0/sigmaSqj);
+                        nearest.insert(j);
+                        cout<<"insert "<<j<<endl;
                     }
                 }
             }
-            if((int)nearest.size() > lambdaN)
-            {
-                // fuse
-                float tho = sunTho / sunSigmaInv;
-                float sigmaSquare = 1.0 / sunSigmaInv;
+        }
+        if((int)nearest.size() > lambdaN)
+        {
+            // fuse
+            float tho = sunTho / sunSigmaInv;
+            float sigmaSquare = 1.0 / sunSigmaInv;
 float thoM = kp1.mDepth;
-                kp1.fused = true;
-                kp1.tho = tho;
-                kp1.sigma = sqrt(sigmaSquare);
+            kp1.fused = true;
+            kp1.tho = tho;
+            kp1.sigma = sqrt(sigmaSquare);
 
-                // set hypotheses fuse flag
-                map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
+            // set hypotheses fuse flag
+            map<RcKeyPoint*,int> rel = kp1.hypothesesRelation;
 int hypoCount = 1;
-                for(auto &kpit2 : rel)
-                {
-                    kpit2.first->fused = true;
-                    cout<<"kpit2 fused true"<<endl;
+            for(auto &kpit2 : rel)
+            {
+                kpit2.first->fused = true;
 thoM += kpit2.first->mDepth;
 hypoCount++;
-                }
-kp1.mDepth = thoM / hypoCount;
             }
+kp1.mDepth = thoM / hypoCount;
         }
-
+else{continue;}
 
 //        cout<<"proj"<<endl;
         cv::Mat x3D = UnprojectStereo(kp1, pKF);

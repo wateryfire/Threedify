@@ -297,18 +297,6 @@ void MapReconstructor::RunToReconstructMap()
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
-
-//            {
-//                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
-//                for(int i=0;i<2;i++)
-//                {
-//                    if(mlpKFQueueForReonstruction.empty())
-//                    {
-//                        break;
-//                    }
-//                    mlpKFQueueForReonstruction.pop_front();
-//                }
-//            }
         }
     }
 
@@ -461,11 +449,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
 
-        if(a==0&&b==0)
-        {
-            continue;
-        }
-
         /*
 //        cout<<"move on epipolar line"<<endl;
         Point2f startCord,endCord;
@@ -549,17 +532,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float gradient2 = kp2.gradient;
 
             // search on epipolar line
-//            if(!CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
-//                continue;
-//            }
-            const float num = a*kp2.pt.x+b*kp2.pt.y+c;
-
-            const float den = a*a+b*b;
-
-            const float dsqr = num*num/den;
-
-            if(!(dsqr<3.84*pKF2->mvLevelSigma2[kp2.octave]))
-            {
+            if(!CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
                 continue;
             }
 
@@ -994,10 +967,6 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         //        cout<<kp1.hypotheses.size()<<endl;
         vector<pair<float, float>> hypos = kp1.hypotheses;
         int total = hypos.size();
-        if(total==0)
-        {
-//            continue;
-        }
         if(total > lambdaN)
         {
             float sunTho = 0, sunSigmaInv = 0;
@@ -1034,25 +1003,24 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
                 // fuse
                 float tho = sunTho / sunSigmaInv;
                 float sigmaSquare = 1.0 / sunSigmaInv;
-float thoM = kp1.mDepth;
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sqrt(sigmaSquare);
 
                 // set hypotheses fuse flag
                 map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
-int hypoCount = 1;
                 for(auto &kpit2 : rel)
                 {
                     kpit2.first->fused = true;
                     cout<<"kpit2 fused true"<<endl;
-thoM += kpit2.first->mDepth;
-hypoCount++;
                 }
-kp1.mDepth = thoM / hypoCount;
             }
         }
-
+        else
+        {
+            if(total == 0)
+                continue;
+        }
 
 //        cout<<"proj"<<endl;
         cv::Mat x3D = UnprojectStereo(kp1, pKF);

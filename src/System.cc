@@ -277,6 +277,11 @@ void System::Reset()
 
 void System::Shutdown()
 {
+    while(!mpMapReconstructor->isRealTimeReconstructionEnd())
+    {
+        usleep(5000);
+    }
+
     mpLocalMapper->RequestFinish();
     mpLoopCloser->RequestFinish();
     mpViewer->RequestFinish();

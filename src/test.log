@@ -1,0 +1,713 @@
+
+ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of Zaragoza.
+This program comes with ABSOLUTELY NO WARRANTY;
+This is free software, and you are welcome to redistribute it
+under certain conditions. See LICENSE.txt.
+
+Input sensor was set to: RGB-D
+
+Loading ORB Vocabulary. This could take a while...
+Vocabulary loaded!
+
+
+Camera Parameters: 
+- fx: 520.909
+- fy: 521.007
+- cx: 325.141
+- cy: 249.702
+- k1: 0.231222
+- k2: -0.784899
+- k3: 0.917205
+- p1: -0.003257
+- p2: -0.000105
+- fps: 30
+- color order: RGB (ignored if grayscale)
+
+ORB Extractor Parameters: 
+- Number of Features: 1000
+- Scale Levels: 8
+- Scale Factor: 1.2
+- Initial Fast Threshold: 20
+- Minimum Fast Threshold: 7
+
+Depth Threshold (Close/Far Points): 3.83944
+MapReconstructor: Start thread execution for processing key frames queue.
+MapReconstructor: Start thread execution for map reconstruction during SLAM tracking.
+
+-------
+Start processing sequence ...
+Images in the sequence: 2893
+
+New map created with 787 points
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 1).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 1).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 2).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 2).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 3).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 3).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 4).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 4).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 5).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 5).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 6).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 6).
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 7).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Reconstructing map from the key frame (FrameId: 7).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 7).
+MapReconstructor: Reconstructing map from the key frame (FrameId: 7).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 8).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 9).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 10).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 11).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 12).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 13).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 14).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 15).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 16).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 17).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 18).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 19).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 20).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+keyframe data not extracted yet: 0
+enter fuse
+kpit2 fused true
+kpit2 fused true
+kpit2 fused true
+kpit2 fused true
+kpit2 fused true
+kpit2 fused true
+MapReconstructor: Reconstructing map from the key frame (FrameId: 14).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 21).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 22).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 23).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 24).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 25).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 26).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 27).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 28).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 29).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 30).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 31).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 32).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 33).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 34).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 35).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 36).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 37).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 21).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 38).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 39).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 40).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 41).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 42).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 43).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 28).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 44).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 45).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 46).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 47).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 48).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 49).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 50).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 51).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 52).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 53).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 54).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 55).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 56).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 57).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 58).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 59).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 60).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 61).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 62).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 35).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 63).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 64).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 65).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 66).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 42).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 67).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 68).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 69).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 70).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 71).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 49).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 72).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 73).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 74).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 75).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 56).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 76).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 77).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 78).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 79).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 63).
+CreateNewMapPoints
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 80).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 81).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 70).
+CreateNewMapPoints
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 82).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 83).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 84).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 85).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 86).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 77).
+CreateNewMapPoints
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 87).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 88).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 84).
+CreateNewMapPoints
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 89).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 90).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 91).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 92).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+enter fuse
+MapReconstructor: Reconstructing map from the key frame (FrameId: 91).
+CreateNewMapPoints
+epipolarConstraientSearch
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 93).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 94).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 95).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+MapReconstructor: Extracting edge profile info from the key frame (FrameId: 96).
+MapReconstructor: Processing  gray image: 307200 pixel(s).
+MapReconstructor: Processing depth image: 307200 pixel(s).
+MapReconstructor: Release  gray image: 307200 pixel(s) remain.
+MapReconstructor: Release depth image: 307200 pixel(s) remain.
+epipolarConstraientSearch
+enter fuse
