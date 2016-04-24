@@ -24,6 +24,8 @@ public:
         STOPPED
     };
 
+    bool realTimeReconstructionEnd = false;
+
     // re-construction key point
     struct RcKeyPoint
     {
@@ -36,14 +38,17 @@ public:
         // depth from mesurements
         float mDepth;
 
-        // hyposis inverse depth
-        float tho;
-        // hyposis inverse depth standard
-        float sigma;
+        // inverse depth hypotheses set
+        vector<pair<float, float>> hypotheses;
+        map<RcKeyPoint*, int> hypothesesRelation;
+
+        // final hypothese
+        float tho = NAN;
+        float sigma = NAN;
 
         // status
         bool hasHypo;
-        bool fused;
+        bool fused = false;
 
         // color if needed
         long rgb;
@@ -51,6 +56,8 @@ public:
         /**
        * Constructor
        */
+        RcKeyPoint(){}
+
         RcKeyPoint(float x, float y, float intensity, float gradient, float orientation,int octave,float depth):
             pt(x,y), intensity(intensity), gradient(gradient),orientation(orientation),octave(octave),mDepth(depth),hasHypo(false),fused(false){}
 
@@ -59,10 +66,17 @@ public:
             mDepth = depth;
         }
 
-        void updateHypo(float thoStar, float sigmaStar){
-            tho = thoStar;
-            sigma = sigmaStar;
+        void addHypo(float thoStar, float sigmaStar, RcKeyPoint* match){
+            hypothesesRelation[match] = hypotheses.size();
+            hypotheses.push_back(make_pair(thoStar, sigmaStar));
             hasHypo = true;
+        }
+    };
+    struct Point2fLess
+    {
+        bool operator()(cv::Point2f const&lhs, cv::Point2f const& rhs) const
+        {
+            return lhs.x == rhs.x ? lhs.y < rhs.y : lhs.x < rhs.x;
         }
     };
 
@@ -84,6 +98,7 @@ public:
 
 	void StartRealTimeMapReconstruction();
 	void StopRealTimeMapReconstruction();
+    bool isRealTimeReconstructionEnd();
 
 	void StartFullMapReconstruction();
     void StopFullMapReconstruction();
@@ -104,8 +119,8 @@ public:
     // noise relation factor
     float theta = 0.23;
 
-
-    map<long, vector<RcKeyPoint>> keyframeKeyPointsMap;
+    // key points for epipolar search
+    map<long, map<cv::Point2f,RcKeyPoint,Point2fLess> > keyframeKeyPointsMap;
 
     bool CheckNewKeyFrames(KeyFrame* currentKeyFrame);
     void CreateNewMapPoints(KeyFrame* currentKeyFrame);
@@ -117,10 +132,16 @@ public:
     cv::Mat ComputeF12(KeyFrame *pKF1, KeyFrame *pKF2);
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
     void epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12, vector<pair<size_t,size_t> > &vMatchedIndices);
+    bool calCordBounds(cv::Point2f &startCordRef, cv::Point2f &endCordRef, float width, float height, float a, float b,float c);
+    float checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation, KeyFrame *pKF2);
     float calInverseDepthEstimation(RcKeyPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2);
     bool CheckDistEpipolarLine(RcKeyPoint& kp1,RcKeyPoint& kp2,cv::Mat &F12,KeyFrame* pKF2);
     float calcMedianRotation(KeyFrame* pKF1, KeyFrame* pKF2);
     float calcInPlaneRotation(KeyFrame* pKF1, KeyFrame* pKF2);
+    void calcSenceInverseDepthBounds(KeyFrame* pKF, float &tho0, float &sigma0);
+    bool cordInImageBounds(float x, float y, int width, int height);
+
+    void fuseHypo(KeyFrame* pKF);
 
 private:
 
