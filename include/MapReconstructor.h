@@ -142,6 +142,8 @@ public:
     bool cordInImageBounds(float x, float y, int width, int height);
 
     void fuseHypo(KeyFrame* pKF);
+    
+    bool getSearchAreaForWorld3DPointInKF (  KeyFrame * const pCurrentKF,  KeyFrame* const pNeighborKF, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2,int& upperBoundXInKF2, int& upperBoundYInKF2 );
 
 private:
 

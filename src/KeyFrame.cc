@@ -628,6 +628,33 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         return cv::Mat();
 }
 
+bool KeyFrame::ProjectStereo(cv::Mat& x3Dw, float& u, float& v)
+{
+    cv::Mat Rcw = Tcw.rowRange(0,3).colRange(0,3);
+    cv::Mat tcw = Tcw.rowRange(0,3).col(3);
+
+    const cv::Mat Pc = Rcw*x3Dw+tcw;
+    const float &PcX = Pc.at<float>(0);
+    const float &PcY= Pc.at<float>(1);
+    const float &PcZ = Pc.at<float>(2);
+
+    // Check positive depth
+    if(PcZ<0.0f)
+        return false;
+
+    // Project in image and check it is not outside
+    const float invz = 1.0f/PcZ;
+    u=fx*PcX*invz+cx;
+    v=fy*PcY*invz+cy;
+
+    if(u<mnMinX || u>mnMaxX)
+        return false;
+    if(v<mnMinY || v>mnMaxY)
+        return false;
+    
+    return true;
+}
+
 cv::Mat KeyFrame::UnprojectStereo(float u,float v, float z)
 {
     if(z>0)

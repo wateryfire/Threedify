@@ -94,6 +94,8 @@ public:
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r) const;
     cv::Mat UnprojectStereo(int i);
     cv::Mat UnprojectStereo(float u, float v, float z);
+    
+    bool ProjectStereo(cv::Mat& x3Dw, float& u, float& v);
 
     // Image
     bool IsInImage(const float &x, const float &y) const;

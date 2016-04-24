@@ -416,6 +416,57 @@ cv::Mat MapReconstructor::SkewSymmetricMatrix(const cv::Mat &v)
             -v.at<float>(1),  v.at<float>(0),              0);
 }
 
+
+
+bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2, int& upperBoundXInKF2, int& upperBoundYInKF2 )
+{
+    //Uproject lower and upper point from KF1 to world
+    const float z = twoDPoint.mDepth;
+    cv::Mat lower3Dw = cv::Mat();
+     cv::Mat upper3Dw = cv::Mat();
+    if(z>1000 && z<8000)
+    {
+        float lowerZ = 0.95*z;
+        float upperZ = 1.05*z;
+        const float u = twoDPoint.pt.x;
+        const float v = twoDPoint.pt.y;
+       //todo:  not use KeyFrame Version as it need to lock mutex
+       lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
+        
+
+        
+        const float x = (u-pKF1->cx)*upperZ*pKF1->invfx;
+        const float y = (v-pKF1->cy)*upperZ*pKF1->invfy;
+        //todo:  not use KeyFrame Version as it need to lock mutex
+        upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
+        
+    }
+    else
+        return false;
+    
+    //Project to  Neighbor KeyFrames
+    
+    float upperU = 0.0;
+    float upperV = 0.0;
+    float lowerU = 0.0;
+     float lowerV = 0.0;
+    bool isUpperValid = pKF2->ProjectStereo(upper3Dw, upperU, upperV);
+   
+ if(!isUpperValid) 
+         return false;
+    bool isLowerValid = pKF2->ProjectStereo(lower3Dw, lowerU, lowerV);
+      
+      if(!isLowerValid) 
+         return false;
+         
+    if (lowerU > upperU)
+        swap(lowerU, upperU);
+    if(lowerV > upperV)
+        swap(lowerV, upperV);
+   
+    return true;
+    
+}
 void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12,vector<pair<size_t,size_t> > &vMatchedIndices)
 {
     cout<<"epipolarConstraientSearch"<<endl;
@@ -466,6 +517,12 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             continue;
         }
 
+      //Reduce the search area in KF2 for corresponding high gradient point kp1
+     
+      int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+      getSearchAreaForWorld3DPointInKF ( pKF1, pKF2, kp1, lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+      
+      
         /*
 //        cout<<"move on epipolar line"<<endl;
         Point2f startCord,endCord;
@@ -978,6 +1035,8 @@ bool MapReconstructor::cordInImageBounds(float x, float y, int width, int height
 {
     return (x>=0.0 && x<=width && y>=0.0 && y<=height);
 }
+
+
 
 void MapReconstructor::fuseHypo(KeyFrame* pKF)
 {
