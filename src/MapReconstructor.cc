@@ -117,7 +117,7 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-    //normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+//    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     // ? stor opt
     pKeyFrame->mRefImgGradient = modulo;
@@ -169,6 +169,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             int octave;
             float depth = depths.at<float>(Point(col, row));
 //            float depth = depths.at<float>(row, col);
+if(depth<=0){continue;}
             for(iter = octaveDepthMap.end(); iter != octaveDepthMap.begin(); iter--)
             {
                 octave = iter->first;
@@ -298,17 +299,17 @@ void MapReconstructor::RunToReconstructMap()
 
             fuseHypo(currentKeyFrame);
 
-//            {
-//                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
-//                for(int i=0;i<2;i++)
-//                {
-//                    if(mlpKFQueueForReonstruction.empty())
-//                    {
-//                        break;
-//                    }
-//                    mlpKFQueueForReonstruction.pop_front();
-//                }
-//            }
+            {
+                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
+                for(int i=0;i<2;i++)
+                {
+                    if(mlpKFQueueForReonstruction.empty())
+                    {
+                        break;
+                    }
+                    mlpKFQueueForReonstruction.pop_front();
+                }
+            }
         }
     }
 
@@ -331,8 +332,9 @@ bool MapReconstructor::isRealTimeReconstructionEnd()
 
 bool MapReconstructor::CheckNewKeyFrames(KeyFrame* currentKeyFrame)
 {
-    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
-    return (int)vpNeighKFs.size() >= kN;
+//    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
+//    return (int)vpNeighKFs.size() >= kN;
+    return currentKeyFrame->mnId > 10;
 }
 
 void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
@@ -416,79 +418,45 @@ cv::Mat MapReconstructor::SkewSymmetricMatrix(const cv::Mat &v)
             -v.at<float>(1),  v.at<float>(0),              0);
 }
 
-
-
-bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2, int& upperBoundXInKF2, int& upperBoundYInKF2 )
-{
-    //Uproject lower and upper point from KF1 to world
-    const float z = twoDPoint.mDepth;
-    cv::Mat lower3Dw = cv::Mat();
-     cv::Mat upper3Dw = cv::Mat();
-    if(z>1000 && z<8000)
-    {
-        float lowerZ = 0.95*z;
-        float upperZ = 1.05*z;
-        const float u = twoDPoint.pt.x;
-        const float v = twoDPoint.pt.y;
-       //todo:  not use KeyFrame Version as it need to lock mutex
-       lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
-        
-
-        
-        const float x = (u-pKF1->cx)*upperZ*pKF1->invfx;
-        const float y = (v-pKF1->cy)*upperZ*pKF1->invfy;
-        //todo:  not use KeyFrame Version as it need to lock mutex
-        upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
-        
-    }
-    else
-        return false;
-    
-    //Project to  Neighbor KeyFrames
-    
-    float upperU = 0.0;
-    float upperV = 0.0;
-    float lowerU = 0.0;
-     float lowerV = 0.0;
-    bool isUpperValid = pKF2->ProjectStereo(upper3Dw, upperU, upperV);
-   
- if(!isUpperValid) 
-         return false;
-    bool isLowerValid = pKF2->ProjectStereo(lower3Dw, lowerU, lowerV);
-      
-      if(!isLowerValid) 
-         return false;
-         
-    if (lowerU > upperU)
-        swap(lowerU, upperU);
-    if(lowerV > upperV)
-        swap(lowerV, upperV);
-   
-    return true;
-    
-}
 void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12,vector<pair<size_t,size_t> > &vMatchedIndices)
 {
-    cout<<"epipolarConstraientSearch"<<endl;
+    // get rotation (j - i) and
+    cv::Mat R1w = pKF1->GetRotation();
+    cv::Mat t1w = pKF1->GetTranslation();
+    cv::Mat R2w = pKF2->GetRotation();
+    cv::Mat t2w = pKF2->GetTranslation();
+
+    cv::Mat R21 = R2w*R1w.t();
+    cv::Mat t21 = -R2w*R1w.t()*t1w+t2w;
+
+    cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
+    cv::Mat rjix = (cv::Mat_<float>(1,3) << R21.at<float>(0,0), R21.at<float>(0,1), R21.at<float>(0,2));
+    float tjiz = t21.at<float>(2);
+    float tjix = t21.at<float>(0);
+
+    // high gradient area points
     const long mnid1 = pKF1->mnId, mnid2 = pKF2->mnId;
+    cout<<"epipcolar constraient search between "<<mnid1<<" "<<mnid2<<endl;
 //    vMatchedIndices.clear();
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
 
 //    float medianRotation = calcInPlaneRotation(pKF1,pKF2);
     float medianRotation = calcMedianRotation(pKF1,pKF2);
-//    float tho0, sigma0;
-//    calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
-//    cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
-//    const float width = pKF2->mRefImgGray.rows, height = pKF2->mRefImgGray.cols;
+    // inverse depth of sense
+    float tho0, sigma0;
+    calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
+    cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
+
     const float width = pKF2->mRefImgGray.cols, height = pKF2->mRefImgGray.rows;
-    if(width ==0 || height ==0)
-    {
-        cout<<"invalid width height"<<endl;
-        return;
-    }
+//    if(width ==0 || height ==0)
+//    {
+//        cout<<"invalid width height"<<endl;
+//        return;
+//    }
 
+    // search for each point in first image
     for(auto &kpit : keyPoints1)
     {
         RcKeyPoint &kp1 = kpit.second;
@@ -509,7 +477,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // epipolar line params
         const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
-        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
+        float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
 
         if(a==0&&b==0)
@@ -517,145 +485,137 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             continue;
         }
 
-      //Reduce the search area in KF2 for corresponding high gradient point kp1
-     
-      int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-      getSearchAreaForWorld3DPointInKF ( pKF1, pKF2, kp1, lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
-      
-      
-        /*
-//        cout<<"move on epipolar line"<<endl;
-        Point2f startCord,endCord;
-        bool bounds = calCordBounds(startCord, endCord, width, height, a, b, c);
-//        cout<<"end cal bounds"<<endl;
-        if(!bounds)
-        {
-            continue;
-        }
-//        cout<<startCord<<endCord<<endl;
-        // move on epipolar line
-        float increaseRate = (endCord.y - startCord.y) / (endCord.x - startCord.x);
-        float axisCrossP = startCord.y - increaseRate * startCord.x;
-        if(isnan(increaseRate))
-        {
-            continue;
-        }
-        cout<<"increaseRate "<<increaseRate<<endl;
+        // Xba(p) = K.inv() * xp
+        cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF1->cx)*pKF1->invfx, (kp1.pt.y-pKF1->cy)*pKF1->invfy, 1.0);
 
-        Mat alreadyProcessed = Mat(height, width, CV_8U, Scalar::all(0));
-        vector<Point> neighbourP;
-        while(cordInImageBounds(startCord.x,startCord.y,width,height))
+//        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
+//        cv::Mat xp1 = pKF1->mK.inv() * xp;
+
+        // upper/lower cordinate bounds in second image
+//        float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
+        float u0 = pKF1->cx + (rjix.dot(xp1) + (tho0 + 2*sigma0) * tjix) / (rjiz.dot(xp1) + (tho0 + 2*sigma0)*tjiz) * pKF1->fx;
+        float u1 = pKF1->cx + (rjix.dot(xp1) + (tho0 - 2*sigma0) * tjix) / (rjiz.dot(xp1) + (tho0 - 2*sigma0)*tjiz) * pKF1->fx;
+//        float data1[] = {1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax};
+//        float data2[] = {1/thoMin,0,0,0,1/thoMin,0,0,0,1/thoMin};
+//        cv::Mat thoMatMax(3, 3, CV_32FC1, data1);
+//        cv::Mat thoMatMin(3, 3, CV_32FC1, data2);
+//        cv::Mat thoMatMax = (cv::Mat_<float>(3,3) << 1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax);
+//        cv::Mat thoMatMin = (cv::Mat_<float>(3,3) << 1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax);
+//        Mat imgSense0 = pKF2->mK * R21 * pKF2->mK.inv() * thoMatMax + pKF2->mK * t21;
+//        float u0 = imgSense0.at<float>(0);
+//        Mat imgSense1 = pKF2->mK * R21 * pKF2->mK.inv() * thoMatMin + pKF2->mK * t21;
+//        float u1 = imgSense1.at<float>(0);
+
+int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+b=0;
+u0=lowerBoundXInKF2;
+u1=upperBoundXInKF2;
+
+
+        float minU = min(u0, u1), maxU = max(u0, u1);
+        float minV = 0, maxV = 0;
+//        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
+
+        float offset = 3.0, dx, dy;
+        float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
+        float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
+
+        Point2f startCord;
+        Point2f endCord;
+        if(b==0)
         {
-            // create p 4 neighbours
+            //minV = 0;
+            //maxV = height;
+            minV = lowerBoundYInKF2;
+            maxV = upperBoundYInKF2;
+            startCord.x = minU;
+            startCord.y = minV;
+            dx = dy = 1.0;
+        }
+        else
+        {
+            startCord.x = minU;
+            startCord.y = -(c + a * minU) / b;
+            minV = maxV = startCord.y;
+            dx = 1.0;
+            dy = -a / b;
+        }
+//        cout<<"init p "<<startCord<<endl;
+
+        if(!cordInImageBounds(startCord.x,startCord.y,width,height))
+        {
+            bool bounds = calCordBounds(startCord, endCord, width, height, a, b, c);
+            //        cout<<"end cal bounds"<<endl;
+
+//            cout<<"bounds p "<<startCord<<endCord<<endl;
+            if(!bounds)
+            {
+//                cout<<"out of bound "<<endl;
+                continue;
+            }
+            else
+            {
+                minU = max(startCord.x, minU);
+                maxU = min(maxU, endCord.x);
+                if(b!=0)
+                {
+                    minV = -(c + a * minU) / b;
+                    maxV = -(c + a * minU) / b;
+                }
+            }
+        }
+
+        minU -= offsetU;
+        maxU += offsetU;
+        minV -= offsetV;
+        maxV += offsetV;
+        startCord.x = minU;
+        startCord.y = minV;
+
+//        cout<<"start "<<startCord<<endl;
+//        cout<<"minU "<<minU<<endl;
+//        cout<<"maxU "<<maxU<<endl;
+//        cout<<"maxV "<<maxV<<endl;
+//        cout<<"minV "<<minV<<endl;
+//        cout<<"offsetU "<<offsetU<<endl;
+//        cout<<"offsetV "<<offsetV<<endl;
+//        cout<<"dx "<<dx<<endl;
+//        cout<<"dy "<<dy<<endl;
+
+        Point2f cordP;
+        while(startCord.x < maxU)
+        {
             float x = startCord.x, y = startCord.y;
-//            cout<<"cords "<<x<<", "<<y<<endl;
-            neighbourP.clear();
-            neighbourP.push_back(Point(floor(x), floor(y)));
-            neighbourP.push_back(Point(ceil(x), floor(y)));
-            neighbourP.push_back(Point(ceil(x), ceil(y)));
-            neighbourP.push_back(Point(floor(x), ceil(y)));
-
-            for(size_t ni=0;ni<neighbourP.size();ni++)
+//            cout<< "stx "<<startCord<<endl;
+            while(y<(maxV + 1.0))
             {
-                Point cord = neighbourP[ni];
-                if(!cordInImageBounds(cord.x,cord.y,width,height))
+               cordP.x = floor(x);
+               cordP.y= floor(y);
+//               cout<< "stP "<<cordP<<endl;
+                if(keyPoints2.count(cordP))
                 {
-                    continue;
-                }
-                Point2f cordP = Point2f(cord.x, cord.y);
-                if(alreadyProcessed.at<uchar>(cord) < 1)
-                {
-                    alreadyProcessed.at<uchar>(cord) = 1;
-
-                    if(!keyPoints2.count(cordP))
-                    {
-                        continue;
-                    }
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
-                    if(kp2.fused)
+                    if(!kp2.fused)
                     {
-                        continue;
-                    }
-                    float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
-//                    cout<<"similarityError "<<similarityError<<endl;
+                        float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
 
-                    // update the best match point
-                    if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
-                        minSimilarityError = similarityError;
-                        matchedCord = cordP;
+                        // update the best match point
+                        if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
+                            minSimilarityError = similarityError;
+                            matchedCord = Point2f(cordP.x, cordP.y);
+                        }
                     }
                 }
-            }
-            float step = increaseRate < 1 ? 1.0 / increaseRate : 1.0;
-            startCord = Point2f(x + step, increaseRate * (x + step) + axisCrossP);
-        }
-*/
-        for(auto &kpit2 : keyPoints2)
-        {
-            RcKeyPoint &kp2 = kpit2.second;
-            Point2f p2 = kpit2.first;
 
-            if(kp2.fused){
-//                cout<<"kp1 already fused"<<endl;
-                continue;
+                y += 1.0;
             }
 
-            // prepare data
-            float intensity2 = kp2.intensity;
-            float angle2 = kp2.orientation;
-            float gradient2 = kp2.gradient;
-
-            // search on epipolar line
-//            if(!CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
-//                continue;
-//            }
-            const float num = a*kp2.pt.x+b*kp2.pt.y+c;
-
-            const float den = a*a+b*b;
-
-            const float dsqr = num*num/den;
-
-            if(!(dsqr<3.84*pKF2->mvLevelSigma2[kp2.octave]))
-            {
-                continue;
-            }
-
-            // check epipolar line angle with orientation
-
-            float eplAngle = fastAtan2(-b,a);
-            float eplAngleDiff  = angle2 - eplAngle ;
-            if(eplAngleDiff < -0.0){
-                eplAngleDiff += 360.0;
-            }else if(eplAngleDiff > 360.0){
-                eplAngleDiff -= 360.0;
-            }
-            if(eplAngleDiff >= lambdaL){
-                continue;
-            }
-
-            // check in-plane rotation
-            float angleDiff = angle2 - angle1 - medianRotation;
-            if(angleDiff < -0.0){
-                angleDiff += 360.0;
-            }else if(angleDiff > 360.0){
-                angleDiff -= 360.0;
-            }
-            if(angleDiff >= lambdaThe){
-                continue;
-            }
-
-            // cal similarity error
-            float intensityError = intensity1 - intensity2;
-            float gradientError = gradient1 - gradient2;
-            float similarityError = (intensityError * intensityError + 1.0/theta * gradientError * gradientError ) / ( sigmaI * sigmaI );
-
-            if(minSimilarityError < 0 || minSimilarityError > similarityError){
-                minSimilarityError = similarityError;
-                matchedCord = Point2f(p2.x, p2.y);
-            }
+            startCord.x += dx;
+            startCord.y += dy;
+            maxV += dy;
         }
 
-//        cout<<"found "<<minSimilarityError<<endl;
         // use the best match point to estimate the distribution
         if(minSimilarityError >=0 && minSimilarityError<1.0e+5){
 //            cout<<matchedCord<<"matchedCord "<<minSimilarityError<<endl;
@@ -703,20 +663,91 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float u0Star = u0 + (g * intensityError + 1.0 / theta * q * gradientError ) / (g*g + 1.0/theta *q*q);
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /(g*g + 1.0/theta *q*q) );
 
+            float v0Star = - (a*u0Star-c)/b;
+            if(!cordInImageBounds(u0Star, v0Star, width, height))
+            {
+                if(abs(u0)>10.e+5){
+                    cout<<"intensityError gradientError/ "<<intensityError<<",  "<<gradientError<<endl;
+                    cout<<"sub pixel estimation of error / derivate"<<(g*g + 1.0/theta *q*q)<<", g "<<g<<" q "<<q<<endl;
+                }
+//                cout<<u0<<" "<<u0Star<<endl;
+                continue;
+            }
+
             // inverse depth hypothese
-            float rho = calInverseDepthEstimation(kp1, u0Star, pKF1, pKF2);
+//            float rho = calInverseDepthEstimation(kp1, u0Star, pKF1, pKF2);
+            float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Star-pKF1->cx) + pKF1->fx * tjix );
             if(isnan(rho)){
                 continue;
             }
 
-            float rhoUpper = calInverseDepthEstimation(kp1, u0Star + sigmaU0Star, pKF1, pKF2);
-            float rhoLower = calInverseDepthEstimation(kp1, u0Star -  sigmaU0Star, pKF1, pKF2);
+//            float rhoUpper = calInverseDepthEstimation(kp1, u0Star + sigmaU0Star, pKF1, pKF2);
+            float u0Starl = u0Star - sigmaU0Star, u0Starr = u0Star + sigmaU0Star;
+            float rhoUpper = (rjiz.dot(xp1) *(u0Starr-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starr-pKF1->cx) + pKF1->fx * tjix );
+//            float rhoLower = calInverseDepthEstimation(kp1, u0Star -  sigmaU0Star, pKF1, pKF2);
+            float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
             float sigmaRho = max(abs(rhoUpper - rho),abs(rhoLower - rho));
 
-//            cout<<"add hypo"<<(1.0/rho)<<endl;
+//            cout<<"add hypo"<<(1.0/rho)<<" xp* "<<u0Star<<" "<<v0Star<<endl;
             kp1.addHypo(rho, sigmaRho,&match);
         }
     }
+}
+
+
+bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2, int& upperBoundXInKF2, int& upperBoundYInKF2 )
+{
+    //Uproject lower and upper point from KF1 to world
+    const float z = twoDPoint.mDepth;
+    cv::Mat lower3Dw = cv::Mat();
+     cv::Mat upper3Dw = cv::Mat();
+    if(z>1 && z<8)
+    {
+        float lowerZ = 0.95*z;
+        float upperZ = 1.05*z;
+        const float u = twoDPoint.pt.x;
+        const float v = twoDPoint.pt.y;
+       //todo:  not use KeyFrame Version as it need to lock mutex
+       lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
+        
+
+        
+        const float x = (u-pKF1->cx)*upperZ*pKF1->invfx;
+        const float y = (v-pKF1->cy)*upperZ*pKF1->invfy;
+        //todo:  not use KeyFrame Version as it need to lock mutex
+        upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
+        
+    }
+    else
+        return false;
+    
+    //Project to  Neighbor KeyFrames
+    
+    float upperU = 0.0;
+    float upperV = 0.0;
+    float lowerU = 0.0;
+     float lowerV = 0.0;
+    bool isUpperValid = pKF2->ProjectStereo(upper3Dw, upperU, upperV);
+   
+ if(!isUpperValid) 
+         return false;
+    bool isLowerValid = pKF2->ProjectStereo(lower3Dw, lowerU, lowerV);
+      
+      if(!isLowerValid) 
+         return false;
+         
+    if (lowerU > upperU)
+        swap(lowerU, upperU);
+    if(lowerV > upperV)
+        swap(lowerV, upperV);
+
+lowerBoundXInKF2 = lowerU;
+lowerBoundYInKF2 = lowerV;
+upperBoundXInKF2 = upperU;
+upperBoundYInKF2 = upperV;
+   
+    return true;
+    
 }
 
 bool MapReconstructor::calCordBounds(Point2f &startCordRef, Point2f &endCordRef, float width, float height, float a, float b,float c)
@@ -743,17 +774,14 @@ bool MapReconstructor::calCordBounds(Point2f &startCordRef, Point2f &endCordRef,
 
     if(ycord)
     {
-//        cout<<"c "<<c<<", b "<<b<<endl;
         cords.push_back(Point2f(0.0, -c /b));
         cords.push_back(Point2f(width, (-c - a*width) /b));
     }
     if(xcord)
     {
-//        cout<<"c "<<c<<", a "<<a<<endl;
         cords.push_back(Point2f(-c / a, 0.0));
         cords.push_back(Point2f((-c - b*height) / a, height));
     }
-//    cout<<"push end "<<cords<<endl;
 
     int cordSize = (int)cords.size();
     if(cordSize < 2)
@@ -775,19 +803,7 @@ bool MapReconstructor::calCordBounds(Point2f &startCordRef, Point2f &endCordRef,
         }
 //        cout<<"i "<<i<<" p "<<p<<" valid "<<cordInImageBounds(xc,yc,width,height)<<"w h"<<width<<height<<endl;
     }
-//    vector<Point2f>::iterator cordit;
-//    cout<<"siz "<<cordSize<<endl;
-//    for(cordit=cords.begin();cordit!=cords.end();++cordit)
-//    {
-//        const float xc = cordit->x;
-//        const float yc = cordit->y;
-////        cout<<"erase "<<xc<<" "<<yc<<endl;
-//        if(isnan(xc) || isnan(yc) || !cordInImageBounds(xc,yc,width,height))
-//        {
-//            cords.erase(cordit);
-//        }
-////        cout<<"erase end"<<endl;
-//    }
+
     if(validCount < 2)
     {
 //        cout<<"invalid cord ed "<<endl;
@@ -944,8 +960,8 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
     const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF1->mnId);
     const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(pKF2->mnId);
 
-    const std::vector<cv::KeyPoint> mvKeys1 = pKF1->mvKeys;
-    const std::vector<cv::KeyPoint> mvKeys2 = pKF2->mvKeys;
+    const std::vector<cv::KeyPoint> &mvKeys1 = pKF1->mvKeys;
+    const std::vector<cv::KeyPoint> &mvKeys2 = pKF2->mvKeys;
 
     vector<float> angles;
     float median = 0.0;
@@ -1006,6 +1022,10 @@ void MapReconstructor::calcSenceInverseDepthBounds(KeyFrame* pKF, float &tho0, f
     for (size_t i = 0; i < mvDepth.size(); ++i)
     {
         float depth = mvDepth[i];
+        if(depth <= 0)
+        {
+            continue;
+        }
         if(isnan(maxDepth))
         {
             maxDepth = minDepth = depth;
@@ -1036,12 +1056,11 @@ bool MapReconstructor::cordInImageBounds(float x, float y, int width, int height
     return (x>=0.0 && x<=width && y>=0.0 && y<=height);
 }
 
-
-
 void MapReconstructor::fuseHypo(KeyFrame* pKF)
 {
     cout<< "enter fuse"<<endl;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(pKF->mnId);
+    long kfid = pKF->mnId;
+    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
     for(auto &kpit : keyPoints)
     {
         RcKeyPoint &kp1 = kpit.second;
@@ -1055,8 +1074,9 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         int total = hypos.size();
         if(total==0)
         {
-//            continue;
+            continue;
         }
+//        cout<<"hypos count "<<total<<endl;
         if(total > lambdaN)
         {
             float sunTho = 0, sunSigmaInv = 0;
@@ -1088,27 +1108,37 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
                     }
                 }
             }
-            if((int)nearest.size() > lambdaN)
+            int totalCompact = (int)nearest.size();
+            if(totalCompact > lambdaN)
             {
                 // fuse
                 float tho = sunTho / sunSigmaInv;
                 float sigmaSquare = 1.0 / sunSigmaInv;
-float thoM = kp1.mDepth;
+//float thoM = kp1.mDepth;
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sqrt(sigmaSquare);
+                cout<<"point "<<kp1.pt<<" in kf "<<kfid << " fused: tho="<<tho<<", sigma="<<kp1.sigma<<endl;
 
                 // set hypotheses fuse flag
                 map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
-int hypoCount = 1;
+//int hypoCount = 1;
                 for(auto &kpit2 : rel)
                 {
-                    kpit2.first->fused = true;
-                    cout<<"kpit2 fused true"<<endl;
-thoM += kpit2.first->mDepth;
-hypoCount++;
+                    int fxidx = kpit2.second;
+                    for(const int fsi : nearest)
+                    {
+                        if(fsi == fxidx)
+                        {
+                            kpit2.first->fused = true;
+                            break;
+                        }
+                    }
+//                    cout<<"kpit2 fused true"<<endl;
+//thoM += kpit2.first->mDepth;
+//hypoCount++;
                 }
-kp1.mDepth = thoM / hypoCount;
+//kp1.mDepth = thoM / hypoCount;
             }
         }
 
