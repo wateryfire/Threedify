@@ -44,6 +44,8 @@ public:
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     ORB_SLAM2::System* mpSLAM;
+
+    void SaveKeyFrameTrajectory(ORB_SLAM2::Map* map, const string &tracksfile);
 };
 
 int main(int argc, char **argv)
@@ -66,7 +68,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
+    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
@@ -78,6 +80,8 @@ int main(int argc, char **argv)
 
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+
+    igb.SaveKeyFrameTrajectory(SLAM.GetMap(), "MapPoints.txt");
 
     ros::shutdown();
 
@@ -110,6 +114,34 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
 
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+}
+void ImageGrabber::SaveKeyFrameTrajectory(ORB_SLAM2::Map *map, const string &tracksfile) {
+
+    vector<ORB_SLAM2::MapPoint*> vpMPs = map->GetAllMapPoints();
+
+    std::ofstream fpoints;
+    fpoints.open(tracksfile.c_str());
+    fpoints << fixed;
+
+    for(size_t i = 0; i < vpMPs.size(); i++) {
+        ORB_SLAM2::MapPoint* pMp = vpMPs[i];
+
+        if(pMp->isBad())
+            continue;
+
+        auto coords = pMp->GetWorldPos();
+        fpoints << setprecision(6)
+                << pMp->mnFirstKFid
+                << " " << pMp->mnId
+                << setprecision(7)
+                << " " << coords.at<float>(0, 0)
+                << " " << coords.at<float>(1, 0)
+                << " " << coords.at<float>(2, 0)
+                << std::endl;
+    }
+
+    fpoints.close();
+    std::cout << std::endl << "map saved!" << std::endl;
 }
 
 

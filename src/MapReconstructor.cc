@@ -29,6 +29,10 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     lambdaThe = fSettings["ReConstruction.lambdaThe"];
     lambdaN = fSettings["ReConstruction.lambdaN"];
     theta = fSettings["ReConstruction.theta"];
+
+    // camera params
+    width = fSettings["Camera.width"];
+    height = fSettings["Camera.height"];
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -70,13 +74,14 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
 
 	    ExtractEdgeProfile(currentKeyFrame);
 
-	    // Release or never release the images?
+        // Release or never release the images?
 
-	    //currentKeyFrame->mRefImgGray.release();
-	    //currentKeyFrame->mRefImgDepth.release();
+        currentKeyFrame->mRefImgGray.refcount = 0;
+        currentKeyFrame->mRefImgGray.release();
+        currentKeyFrame->mRefImgDepth.refcount = 0;
+        currentKeyFrame->mRefImgDepth.release();
 
-		cout << "MapReconstructor: Release  gray image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
-		cout << "MapReconstructor: Release depth image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
+        cout << "MapReconstructor: Release  gray image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
 
 		{
 			// Add to the second queue for the real-time map reconstruction
@@ -90,7 +95,7 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
 	    nCounter++;
 	}
 
-	cout << "MapReconstructor: End thread execution for processing key frames queue. Total " << nCounter << " key frames were processed." << endl;
+    cout << "MapReconstructor: End thread execution for processing key frames queue. Total " << nCounter << " key frames were processed." << endl;
 }
 
 void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
@@ -118,9 +123,6 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 //    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-
-    // ? stor opt
-    pKeyFrame->mRefImgGradient = modulo;
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
 }
@@ -167,7 +169,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             // judge which interval of one point on edge belongs to, give an approximate estimation of octave
             int octave;
             float depth = depths.at<float>(Point(col, row));
-            if(depth<=0)
+            if(depth<=0 || depth>8)
             {
                 continue;
             }
@@ -181,9 +183,10 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             //
             float angle = orientation.at<float>(Point(col, row));
             float intensity = image.at<float>(Point(col, row));
-            float gradient = gradientModulo;
             Point2f cord = Point2f(col, row);
-            keyPoints[cord] = RcKeyPoint(col, row,intensity,gradient,angle,octave,depth);
+            RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,octave,depth);
+            hgkp.fetchNeighbours(image, gradient);
+            keyPoints[cord] = hgkp;
         }
     }
     keyframeKeyPointsMap[pKF->mnId] = keyPoints;
@@ -255,8 +258,8 @@ void MapReconstructor::RunToReconstructMap()
     KeyFrame* currentKeyFrame=NULL;
 
 	while(mStatus_RealTimeMapReconstruction!=STARTED)
-	{
-        usleep(1000);
+    {
+        sleep(1);
 	}
 
 	cout << "MapReconstructor: Start thread execution for map reconstruction during SLAM tracking." << endl;
@@ -266,7 +269,7 @@ void MapReconstructor::RunToReconstructMap()
     {
         if(mlpKFQueueForReonstruction.empty())
         {
-            usleep(1000);
+            sleep(1);
 
             continue;
         }
@@ -275,7 +278,7 @@ void MapReconstructor::RunToReconstructMap()
         cout << "MapReconstructor: Reconstructing map from the key frame (FrameId: " << currentKeyFrame->mnId << ")." << endl;
 
         bool frameValid = CheckNewKeyFrames(currentKeyFrame);
-        if (frameValid || retryCount>7)
+        if (frameValid /*|| retryCount>7*/)
         {
             //Get Mutex-lock to access the queue of key frames.
             {
@@ -287,7 +290,8 @@ void MapReconstructor::RunToReconstructMap()
         else
         {
             retryCount ++;
-            usleep(1000);
+            sleep(1);
+continue;
 //            sleep(3);
         }
 
@@ -331,7 +335,7 @@ bool MapReconstructor::CheckNewKeyFrames(KeyFrame* currentKeyFrame)
 {
 //    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
 //    return (int)vpNeighKFs.size() >= kN;
-    return currentKeyFrame->mnId > 10;
+    return mlpKFQueueForReonstruction.size() > 10;
 }
 
 void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
@@ -448,13 +452,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
     cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
-    const float width = pKF2->mRefImgGray.cols, height = pKF2->mRefImgGray.rows;
-//    if(width ==0 || height ==0)
-//    {
-//        cout<<"invalid width height"<<endl;
-//        return;
-//    }
-
     // search for each point in first image
     for(auto &kpit : keyPoints1)
     {
@@ -463,7 +460,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         if(kp1.fused)
         {
 //            cout<<"kp1 already fused"<<endl;
-//            continue;
+            continue;
         }
 
         // prepare data
@@ -476,7 +473,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // epipolar line params
         const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
-        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
+//        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
+        float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
 
         if(a==0&&b==0)
@@ -503,7 +501,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
 ////////////////////////
         tho0 = 1/kp1.mDepth;
-        sigma0 /= 2;
+        sigma0 /= 3;
 ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -513,11 +511,11 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ////////////////////////
         /// \brief minU
         ///
-        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
-        if(!valid) continue;
-        u0=lowerBoundXInKF2;
-        u1=upperBoundXInKF2;
+//        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+//        if(!valid) continue;
+//        u0=lowerBoundXInKF2;
+//        u1=upperBoundXInKF2;
         ///
         /// ////////////////////
 
@@ -526,18 +524,33 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
         float offset = 1.0, dx, dy;
+        //////
+        ///
+//        minV = lowerBoundYInKF2;
+//        maxV = upperBoundYInKF2;
+//        offset = 0;
+//        b=0;
+        ///
+        //////
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
         float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
 
         Point2f startCord;
         Point2f endCord;
-        if(b==0)
+        if(abs(-a / b) > (height/(2*offset)))
         {
             minV = 0;
             maxV = height;
+            //////
+            ///
+//            minV = lowerBoundYInKF2;
+//            maxV = upperBoundYInKF2;
+            ///
+            //////
             startCord.x = minU;
             startCord.y = minV;
-            dx = dy = 1.0;
+            dx = 1.0;
+            dy = 0;
         }
         else
         {
@@ -552,9 +565,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         if(!cordInImageBounds(startCord.x,startCord.y,width,height))
         {
             bool bounds = calCordBounds(startCord, endCord, width, height, a, b, c);
-            //        cout<<"end cal bounds"<<endl;
-
-//            cout<<"bounds p "<<startCord<<endCord<<endl;
+            //cout<<"bounds p "<<startCord<<endCord<<endl;
             if(!bounds)
             {
 //                cout<<"out of bound "<<endl;
@@ -590,6 +601,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cout<<"dy "<<dy<<endl;
 
         Point2f cordP;
+int count1=0,count2=0;
         while(startCord.x < (maxU + 1.0))
         {
             float x = startCord.x, y = startCord.y;
@@ -602,8 +614,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 if(keyPoints2.count(cordP))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
-//                    if(!kp2.fused)
-//                    {
+                    //if(!kp2.fused)
+                    //{
                         float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
 
                         // update the best match point
@@ -611,15 +623,46 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                             minSimilarityError = similarityError;
                             matchedCord = Point2f(cordP.x, cordP.y);
                         }
-//                    }
+                    //}
                 }
 
                 y += 1.0;
+count2++;
+if(count2>10000){
+        cout<<"count2 "<<endl;
+        cout<<"start "<<startCord<<endl;
+        cout<<"minU "<<minU<<endl;
+        cout<<"maxU "<<maxU<<endl;
+        cout<<"maxV "<<maxV<<endl;
+        cout<<"minV "<<minV<<endl;
+        cout<<"offsetU "<<offsetU<<endl;
+        cout<<"offsetV "<<offsetV<<endl;
+        cout<<"dx "<<dx<<endl;
+        cout<<"dy "<<dy<<endl;
+break;
+}
             }
 
             startCord.x += dx;
             startCord.y += dy;
-            maxV += dy;
+            if(b!=0)
+            {
+                maxV += dy;
+            }
+count1++;
+if(count1>10000){
+        cout<<"count1 "<<endl;
+        cout<<"start "<<startCord<<endl;
+        cout<<"minU "<<minU<<endl;
+        cout<<"maxU "<<maxU<<endl;
+        cout<<"maxV "<<maxV<<endl;
+        cout<<"minV "<<minV<<endl;
+        cout<<"offsetU "<<offsetU<<endl;
+        cout<<"offsetV "<<offsetV<<endl;
+        cout<<"dx "<<dx<<endl;
+        cout<<"dy "<<dy<<endl;
+break;
+}
         }
 
         // use the best match point to estimate the distribution
@@ -638,28 +681,18 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             // pixel estimation:
             // u0s = u0 + (g(u0)*ri(u0) + 1/theta * q(u0) * rg(u0)) / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0) )
             // su0s^2 = 2* si*si / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0))
-
-            cv::Mat imageKf2 = pKF2->mRefImgGray, gradientKf2 = pKF2->mRefImgGradient;
             float u0 = match.pt.x;
 
-            // neighbour coordinates of this point
-            float u0fUpper = match.pt.x + 1.0, v0fUpper = - (a*u0fUpper-c)/b;
-            int u0Upper = (int)round(u0fUpper), v0Upper = (int)round(v0fUpper);
-            if(!cordInImageBounds(u0Upper, v0Upper, width, height))
-            {
-                continue;
-            }
+            // neighbour info of this point
+            vector<float> upper,lower;
+            match.getNeighbourAcrossLine(a,b,lower,upper);
 
-            float u0fLower = match.pt.x - 1.0, v0fLower = - (a*u0fLower-c)/b;
-            int u0Lower = (int)round(u0fLower), v0Lower = (int)round(v0fLower);
-            if(!cordInImageBounds(u0Lower, v0Lower, width, height))
-            {
-                continue;
-            }
+            float intensityUpper = upper[0],gradientUpper = upper[1];
+            float intensityLower = lower[0],gradientLower = lower[1];
 
             // derivate along epipolar line
-            float g = (imageKf2.at<float>(Point(u0Upper, v0Upper)) - imageKf2.at<float>(Point(u0Lower, v0Lower) )) / 2.0;
-            float q = (gradientKf2.at<float>(Point(u0Upper, v0Upper)) - gradientKf2.at<float>(Point(u0Lower, v0Lower)) ) / 2.0;
+            float g = (intensityUpper - intensityLower) / 2.0;
+            float q = (gradientUpper - gradientLower) / 2.0;
 
             // intensity/gradient error
             float intensityError = intensity1 - match.intensity;
@@ -677,12 +710,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
 
-//            float v0Star = - (a*u0Star-c)/b;
-//            if(!cordInImageBounds(u0Star, v0Star, width, height))
-//            {
-//                continue;
-//            }
-
             // inverse depth hypothese
 //            float rho = calInverseDepthEstimation(kp1, u0Star, pKF1, pKF2);
             float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Star-pKF1->cx) + pKF1->fx * tjix );
@@ -695,7 +722,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float rhoUpper = (rjiz.dot(xp1) *(u0Starr-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starr-pKF1->cx) + pKF1->fx * tjix );
 //            float rhoLower = calInverseDepthEstimation(kp1, u0Star -  sigmaU0Star, pKF1, pKF2);
             float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
-            float sigmaRho = max(abs(rhoUpper - rho),abs(rhoLower - rho));
+            float sigmaRho = max(fabs(rhoUpper - rho),fabs(rhoLower - rho));
 
 //            cout<<"add hypo"<<(1.0/rho)<<" xp* "<<u0Star<<" "<<v0Star<<endl;
             kp1.addHypo(rho, sigmaRho,&match);
@@ -879,8 +906,14 @@ float MapReconstructor::checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint
 //    }
 
     // check epipolar line angle with orientation
-    float eplAngle = fastAtan2(-b,a);
+    float eplAngle = fastAtan2(-a,b);
     float eplAngleDiff  = angle2 - eplAngle ;
+        /*if(eplAngleDiff < 0){
+            eplAngleDiff += 360.0;
+        }else if(eplAngleDiff > 360){
+            eplAngleDiff -= 360.0;
+        }
+eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
     while(eplAngleDiff <0 || eplAngleDiff > 90)
     {
         if(eplAngleDiff < 0){
@@ -903,22 +936,29 @@ float MapReconstructor::checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint
     // check in-plane rotation
 //    float medianRotation = calcInPlaneRotation(pKF1,pKF2);
     float angleDiff = angle2 - angle1 - medianRotation;
-
-    while(angleDiff <0 || angleDiff > 90)
-    {
-        if(angleDiff < 0){
+/*if(angleDiff < 0){
             angleDiff += 360.0;
         }else if(angleDiff > 360){
             angleDiff -= 360.0;
-        }
-        else{
-            if(angleDiff>180){
-                angleDiff-=180.0;
-            }else if(angleDiff>90){
-                angleDiff=180.0 - angleDiff;
-            }
-        }
-    }
+        }*/
+angleDiff = fabs(angleDiff);
+
+//    while(angleDiff <0 || angleDiff > 90)
+//    {
+//        if(angleDiff < 0){
+//            angleDiff += 360.0;
+//        }else if(angleDiff > 360){
+//            angleDiff -= 360.0;
+//        }
+//        else{
+//            if(angleDiff>180){
+//                angleDiff-=180.0;
+//            }else if(angleDiff>90){
+//                angleDiff=180.0 - angleDiff;
+//            }
+//        }
+//    }
+
     if(angleDiff >= lambdaThe){
         return similarityError;
     }
@@ -978,9 +1018,9 @@ float MapReconstructor::calcInPlaneRotation(KeyFrame* pKF1,KeyFrame* pKF2){
     cv::Mat R1w = pKF1->GetRotation();
     cv::Mat R2w = pKF2->GetRotation();
 
-    cv::Mat R12 = R1w*R2w.t();
+    cv::Mat R21 = R2w*R1w.t();
 
-    float roInPlane = fastAtan2(R12.at<uchar>(2,1), R12.at<uchar>(1,1));
+    float roInPlane = fastAtan2(R21.at<uchar>(2,1), R21.at<uchar>(1,1));
     return roInPlane;
 }
 
@@ -1020,7 +1060,10 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
             if(keyPoints1.count(c1) && keyPoints2.count(c2))
             {
                 float ort2 = keyPoints2.at(c2).orientation, ort1 = keyPoints1.at(c1).orientation;
-                angles.push_back(ort2 - ort1);
+//float diff = ort2 - ort1;
+//if(diff>360) diff-=360.0;
+//else if(diff<0) diff+=360.0;
+                angles.push_back(ort2-ort1);
             }
         }
     }
@@ -1176,13 +1219,13 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
 
             const float zh = 1.0/kp1.tho;
             if(zh>0) {
-                if(abs(kp1.mDepth-zh)<0.05 * kp1.mDepth){
+                if(fabs(kp1.mDepth-zh)<0.05 * kp1.mDepth){
                     kp1.mDepth = zh;
                 }
             }
 
         }else{
-//            continue;
+            continue;
         }
 
 

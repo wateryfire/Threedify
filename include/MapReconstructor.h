@@ -26,6 +26,10 @@ public:
 
     bool realTimeReconstructionEnd = false;
 
+    // cached camera params
+    int width;
+    int height;
+
     // re-construction key point
     struct RcKeyPoint
     {
@@ -37,6 +41,9 @@ public:
 
         // depth from mesurements
         float mDepth;
+
+        // neighbour pixels, indexed 0-8 in clock order, stors intensity and gradient
+        vector<vector<float>> neighbours;
 
         // inverse depth hypotheses set
         vector<pair<float, float>> hypotheses;
@@ -70,6 +77,48 @@ public:
             hypothesesRelation[match] = hypotheses.size();
             hypotheses.push_back(make_pair(thoStar, sigmaStar));
             hasHypo = true;
+        }
+
+        // store neighbour info for epipolar search
+        void fetchNeighbours(cv::Mat &image, cv::Mat &gradient)
+        {
+            // pixel on edge check ?
+            const float degtorad = M_PI/180;  // convert degrees
+            for(int i=0;i<360;i+=45)
+            {
+                int dx = round(cos(i*degtorad));
+                int dy = round(sin(i*degtorad));
+                cv::Point cur = cv::Point(pt.x+dx, pt.y+dy);
+                vector<float> msg;
+                msg.push_back(image.at<float>(cur));
+                msg.push_back(gradient.at<float>(cur));
+
+                neighbours.push_back(msg);
+            }
+        }
+
+        // get two neighbours on line ax + by + c = 0
+        void getNeighbourAcrossLine(const float a, const float b, vector<float> &lower, vector<float> &upper)
+        {
+            //
+            float angle = cv::fastAtan2(-a,b);
+            int index = 0;
+            for(int i=0;i<360;i+=45)
+            {
+                if(abs(angle-i) < 22.5)
+                {
+                    break;
+                }
+                index++;
+            }
+            index %=8;
+            if(index>=3 && index<=6)
+            {
+                index = (index+4)%8;
+            }
+
+            upper = neighbours[index];
+            lower = neighbours[(index+4)%8];
         }
     };
     struct Point2fLess

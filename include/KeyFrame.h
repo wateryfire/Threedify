@@ -194,7 +194,6 @@ public:
     // Reference images
     cv::Mat mRefImgGray;
     cv::Mat mRefImgDepth;
-    cv::Mat mRefImgGradient;
 
     // The following variables need to be accessed trough a mutex to be thread safe.
 protected:

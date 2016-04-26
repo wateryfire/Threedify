@@ -138,6 +138,10 @@ int main(int argc, char **argv)
     // Save camera trajectory
     SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
 
+    SaveMapPoints(SLAM.GetMap(), "MapPoints.txt");
+
+    //projectKeyFrame(SLAM.GetMap(), "ProjectPoints.txt");
+
     return 0;
 }
 
