@@ -737,22 +737,37 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     const float z = twoDPoint.mDepth;
     cv::Mat lower3Dw = cv::Mat();
      cv::Mat upper3Dw = cv::Mat();
-    if(z>1 && z<8)
+     vector<cv::Mat>  boundPoints;
+     boundPoints.reserve(8);  //todo: to configurable, considering the deviation in (R,t), in depth so it has 3d distribution cubic.
+    if(z>1 && z<8)  //todo: to configurable, depth <= 1m is not good for RGBD sensor, depth >=8 m cause the depth distribution not sensitive.
     {
-        float lowerZ = 0.95*z;
-        float upperZ = 1.05*z;
+        float lowerZ = 0.95*z;  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
+        float upperZ = 1.05*z;  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
         const float u = twoDPoint.pt.x;
         const float v = twoDPoint.pt.y;
-       //todo:  not use KeyFrame Version as it need to lock mutex
+  
        lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
+       float x3D1=lower3Dw.at<float>(0);
+       float y3D1=lower3Dw.at<float>(1);
+       vector<float> xBound1 = vector<float>(0.98*x3D1, 1.02*x3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       vector<float> yBound1 = vector<float>(0.98*y3D1, 1.02*y3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       for(auto & x: xBound1)
+           for(auto & y: yBound1)
+               {
+                    boundPoints.push_back((cv::Mat_<float>(3,1) << x, y, lowerZ));
+                }
+       
+       upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
         
-
-        
-//        const float x = (u-pKF1->cx)*upperZ*pKF1->invfx;
-//        const float y = (v-pKF1->cy)*upperZ*pKF1->invfy;
-        //todo:  not use KeyFrame Version as it need to lock mutex
-        upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
-        
+        float x3D2=upper3Dw.at<float>(0);
+        float y3D2=upper3Dw.at<float>(1);
+        vector<float> xBound2 = vector<float>(0.98*x3D2, 1.02*x3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        vector<float> yBound2 = vector<float>(0.98*y3D2, 1.02*y3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        for(auto & x: xBound2)
+           for(auto & y: yBound2)
+               {
+                    boundPoints.push_back((cv::Mat_<float>(3,1) << x, y, upperZ));
+                }
     }
     else
         return false;
@@ -762,20 +777,30 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     float upperU = 0.0;
     float upperV = 0.0;
     float lowerU = 0.0;
-     float lowerV = 0.0;
-    bool isUpperValid = pKF2->ProjectStereo(upper3Dw, upperU, upperV);
-   
- if(!isUpperValid) 
-         return false;
-    bool isLowerValid = pKF2->ProjectStereo(lower3Dw, lowerU, lowerV);
-      
-      if(!isLowerValid) 
-         return false;
-         
-    if (lowerU > upperU)
-        swap(lowerU, upperU);
-    if(lowerV > upperV)
-        swap(lowerV, upperV);
+    float lowerV = 0.0;
+    float tempU = 0.0;
+    float tempV = 0.0;
+    bool valid = false;
+    
+    //currently only roughly search the area to ensure all deviation are covered in the search area.
+    for(auto & bp: boundPoints)
+    {
+         valid = pKF2->ProjectStereo(bp, tempU, tempV);
+         if(!valid) 
+                return false;
+        if ( tempU > upperU)
+            upperU = tempU;
+        
+        if (tempU < lowerU)
+            lowerU = tempU;
+            
+        if(tempV > upperV)
+            upperV = tempV;
+            
+        if(tempV< lowerV)
+            lowerV = tempV;
+    }
+
 
 lowerBoundXInKF2 = lowerU;
 lowerBoundYInKF2 = lowerV;

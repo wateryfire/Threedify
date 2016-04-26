@@ -670,6 +670,8 @@ cv::Mat KeyFrame::UnprojectStereo(float u,float v, float z)
         return cv::Mat();
 }
 
+
+
 float KeyFrame::ComputeSceneMedianDepth(const int q)
 {
     vector<MapPoint*> vpMapPoints;
