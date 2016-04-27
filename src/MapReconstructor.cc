@@ -14,11 +14,11 @@ namespace ORB_SLAM2
 {
 
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
-        mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
+		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
-    mStatus_KeyFrameQueueProcess=INITIALIZED;
-    mStatus_RealTimeMapReconstruction=INITIALIZED;
-    mStatus_FullMapReconstruction=INITIALIZED;
+	mStatus_KeyFrameQueueProcess=INITIALIZED;
+	mStatus_RealTimeMapReconstruction=INITIALIZED;
+	mStatus_FullMapReconstruction=INITIALIZED;
 
     // Get re-construction params from settings file
     //todo: Exception handling and default value
@@ -175,7 +175,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             int octave;
 if(!pKF->IsInImage(col,row))continue;
             float depth = depths.at<float>(Point(col, row));
-            if(depth<=0 || depth>8)
+            if(depth<=0 /*|| depth>8*/)
             {
                 continue;
             }
@@ -191,13 +191,13 @@ if(!pKF->IsInImage(col,row))continue;
             float intensity = image.at<float>(Point(col, row));
             Point2f cord = Point2f(col, row);
             RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,octave,depth);
-//            hgkp.fetchNeighbours(image, gradient);
-            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
-                vector<float> msg;
-                msg.push_back(image.at<float>(ptn));
-                msg.push_back(gradient.at<float>(ptn));
-                hgkp.neighbours.push_back(msg);
-            });
+            hgkp.fetchNeighbours(image, gradient);
+//            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
+//                vector<float> msg;
+//                msg.push_back(image.at<float>(ptn));
+//                msg.push_back(gradient.at<float>(ptn));
+//                hgkp.neighbours.push_back(msg);
+//            });
             keyPoints[cord] = hgkp;
         }
     }
@@ -474,7 +474,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         if(kp1.fused)
         {
 //            cout<<"kp1 already fused"<<endl;
-            continue;
+//            continue;
         }
 
         // prepare data
@@ -515,9 +515,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
 ////////////////////////
         tho0 = 1/kp1.mDepth;
-        sigma0 /= 2;
-width=pKF2->mnMaxX - pKF2->mnMinX;
-height=pKF2->mnMaxY - pKF2->mnMinY;
+//        sigma0 /= 2;
+//width=pKF2->mnMaxX - pKF2->mnMinX;
+//height=pKF2->mnMaxY - pKF2->mnMinY;
 ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -529,9 +529,9 @@ height=pKF2->mnMaxY - pKF2->mnMinY;
         ///
         int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
         bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
-        //if(!valid) continue;
-        //u0=lowerBoundXInKF2;
-        //u1=upperBoundXInKF2;
+        if(!valid) continue;
+        u0=lowerBoundXInKF2;
+        u1=upperBoundXInKF2;
         ///
         /// ////////////////////
 
@@ -542,10 +542,10 @@ height=pKF2->mnMaxY - pKF2->mnMinY;
         float offset = 1.0, dx, dy;
         //////
         ///
-        //minV = lowerBoundYInKF2;
-        //maxV = upperBoundYInKF2;
-        //offset = 0;
-        //b=0;
+        minV = lowerBoundYInKF2;
+        maxV = upperBoundYInKF2;
+        offset = 0;
+        b=0;
         ///
         //////
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
@@ -561,8 +561,8 @@ height=pKF2->mnMaxY - pKF2->mnMinY;
             maxV = height;
             //////
             ///
-            //minV = lowerBoundYInKF2;
-            //maxV = upperBoundYInKF2;
+            minV = lowerBoundYInKF2;
+            maxV = upperBoundYInKF2;
             ///
             //////
             startCord.x = minU;
@@ -965,23 +965,23 @@ eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
         }else if(angleDiff > 360){
             angleDiff -= 360.0;
         }*/
-angleDiff = fabs(angleDiff);
+//angleDiff = fabs(angleDiff);
 
-//    while(angleDiff <0 || angleDiff > 90)
-//    {
-//        if(angleDiff < 0){
-//            angleDiff += 360.0;
-//        }else if(angleDiff > 360){
-//            angleDiff -= 360.0;
-//        }
-//        else{
-//            if(angleDiff>180){
-//                angleDiff-=180.0;
-//            }else if(angleDiff>90){
-//                angleDiff=180.0 - angleDiff;
-//            }
-//        }
-//    }
+    while(angleDiff <0 || angleDiff > 90)
+    {
+        if(angleDiff < 0){
+            angleDiff += 360.0;
+        }else if(angleDiff > 360){
+            angleDiff -= 360.0;
+        }
+        else{
+            if(angleDiff>180){
+                angleDiff-=180.0;
+            }else if(angleDiff>90){
+                angleDiff=180.0 - angleDiff;
+            }
+        }
+    }
 
     if(angleDiff >= lambdaThe){
         return similarityError;
@@ -1188,7 +1188,10 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
             {
                 if(fsi == fxidx)
                 {
-                    kpit2.first->fused = true;
+                    RcKeyPoint* pkp2 = kpit2.first;
+                    pkp2->fused = true;
+                    pkp2->tho = kp1.tho;
+                    pkp2->sigma = kp1.sigma;
                     break;
                 }
             }
@@ -1205,6 +1208,8 @@ void MapReconstructor::denoise(KeyFrame* pKF)
         RcKeyPoint &kp1 = kpit.second;
         //check neighbour hypos
         int neighbourHypos = 0;
+
+        bool valid = false;
 
         vector<pair<float, float>> nbrhypos;
 
@@ -1230,16 +1235,23 @@ void MapReconstructor::denoise(KeyFrame* pKF)
         int totalCompact = KaTestFuse(nbrhypos, tho, sigma, nearest);
         if(totalCompact < 2 && kp1.fused)
         {
-            kp1.fused = false;
+            continue;
         }
-        else if(totalCompact>=2 && !kp1.fused)
+        else if(totalCompact>=2)
         {
-            kp1.fused = true;
-            kp1.tho = tho;
-            kp1.sigma = sigma;
+            if(!kp1.fused)
+            {
+                kp1.fused = true;
+                kp1.tho = tho;
+                kp1.sigma = sigma;
+            }
+            valid = true;
 //            kp1.addHypo(tho, sigma, 0);
         }
-        addKeyPointToMap(kp1, pKF);
+        if(valid)
+        {
+            addKeyPointToMap(kp1, pKF);
+        }
     }
 }
 
@@ -1293,8 +1305,9 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
     if(kp1.fused){
 
         const float zh = 1.0/kp1.tho;
+        float error = fabs(kp1.mDepth-zh);
         if(zh>0) {
-            if(fabs(kp1.mDepth-zh)<0.05 * kp1.mDepth){
+            if(error > 0.03 * kp1.mDepth && error<0.1 * kp1.mDepth){
                 kp1.mDepth = zh;
             }
         }
