@@ -803,10 +803,10 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     }
 
 
-lowerBoundXInKF2 = lowerU;
-lowerBoundYInKF2 = lowerV;
-upperBoundXInKF2 = upperU;
-upperBoundYInKF2 = upperV;
+lowerBoundXInKF2 = floor(lowerU);
+lowerBoundYInKF2 = floor(lowerV);
+upperBoundXInKF2 = ceil(upperU);
+upperBoundYInKF2 = ceil(upperV);
    
     return true;
     
