@@ -14,13 +14,14 @@ namespace ORB_SLAM2
 {
 
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
-		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
+        mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
-	mStatus_KeyFrameQueueProcess=INITIALIZED;
-	mStatus_RealTimeMapReconstruction=INITIALIZED;
-	mStatus_FullMapReconstruction=INITIALIZED;
+    mStatus_KeyFrameQueueProcess=INITIALIZED;
+    mStatus_RealTimeMapReconstruction=INITIALIZED;
+    mStatus_FullMapReconstruction=INITIALIZED;
 
     // Get re-construction params from settings file
+    //todo: Exception handling and default value
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     kN = fSettings["ReConstruction.KN"];
     sigmaI = fSettings["ReConstruction.sigmaI"];
@@ -34,6 +35,12 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     width = fSettings["Camera.width"];
     height = fSettings["Camera.height"];
 }
+
+MapReconstructor::MapReconstructor():
+        mpMap(NULL), mpKeyFrameDB(NULL), mpORBVocabulary(NULL), mpTracker(NULL)
+{
+}
+
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
 {
@@ -512,8 +519,8 @@ height=pKF2->mnMaxY - pKF2->mnMinY;
         ////////////////////////
         /// \brief minU
         ///
-        //int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-        //bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
         //if(!valid) continue;
         //u0=lowerBoundXInKF2;
         //u1=upperBoundXInKF2;
@@ -723,20 +730,30 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
        lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
        float x3D1=lower3Dw.at<float>(0);
        float y3D1=lower3Dw.at<float>(1);
-       vector<float> xBound1 = vector<float>(0.98*x3D1, 1.02*x3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-       vector<float> yBound1 = vector<float>(0.98*y3D1, 1.02*y3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       vector<float> xBound1 ;
+       xBound1.push_back(0.98*x3D1);
+       xBound1.push_back(1.02*x3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       vector<float> yBound1;
+        yBound1.push_back(0.98*y3D1);
+        yBound1.push_back(1.02*y3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
        for(auto & x: xBound1)
+       {
            for(auto & y: yBound1)
                {
                     boundPoints.push_back((cv::Mat_<float>(3,1) << x, y, lowerZ));
                 }
+        }
        
        upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
         
         float x3D2=upper3Dw.at<float>(0);
         float y3D2=upper3Dw.at<float>(1);
-        vector<float> xBound2 = vector<float>(0.98*x3D2, 1.02*x3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-        vector<float> yBound2 = vector<float>(0.98*y3D2, 1.02*y3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        vector<float> xBound2;
+        xBound2.push_back(0.98*x3D2);
+        xBound2.push_back(1.02*x3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        vector<float> yBound2;
+        yBound2.push_back(0.98*y3D2);
+        yBound2.push_back(1.02*y3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
         for(auto & x: xBound2)
            for(auto & y: yBound2)
                {
