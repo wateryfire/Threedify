@@ -191,7 +191,13 @@ if(!pKF->IsInImage(col,row))continue;
             float intensity = image.at<float>(Point(col, row));
             Point2f cord = Point2f(col, row);
             RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,octave,depth);
-            hgkp.fetchNeighbours(image, gradient);
+//            hgkp.fetchNeighbours(image, gradient);
+            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
+                vector<float> msg;
+                msg.push_back(image.at<float>(ptn));
+                msg.push_back(gradient.at<float>(ptn));
+                hgkp.neighbours.push_back(msg);
+            });
             keyPoints[cord] = hgkp;
         }
     }
@@ -305,6 +311,8 @@ continue;
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
+
+            denoise(currentKeyFrame);
 
 //            {
 //                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
@@ -1156,118 +1164,163 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         if(kp1.fused)
         {
 //            cout<<"already fs"<<endl;
-            continue;
+//            continue;
         }
         //        cout<<kp1.hypotheses.size()<<endl;
-        vector<pair<float, float>> hypos = kp1.hypotheses;
-        int total = hypos.size();
-        if(total==0)
+        vector<pair<float, float>> &hypos = kp1.hypotheses;
+
+        set<int> nearest;
+        int totalCompact = KaTestFuse(hypos, kp1.tho, kp1.sigma, nearest);
+
+        if(totalCompact<=lambdaN)
         {
             continue;
         }
-//        cout<<"hypos count "<<total<<endl;
-        if(total > lambdaN)
+
+        kp1.fused = true;
+
+        // set hypotheses fuse flag
+        map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
+        for(auto &kpit2 : rel)
         {
-            float sunTho = 0, sunSigmaInv = 0;
-            set<int> nearest;
-            // ka square check between every two hypotheses
-            for (int i = 0; i < total; i++)
+            int fxidx = kpit2.second;
+            for(const int fsi : nearest)
             {
-                for (int j = i + 1; j < total; j++)
+                if(fsi == fxidx)
                 {
-                    pair<float, float> a = hypos[i], b = hypos[j];
-                    float diffSqa = (a.first - b.first) * (a.first - b.first);
-                    float sigmaSqi = a.second * a.second, sigmaSqj = b.second*b.second;
-                    if((diffSqa/sigmaSqi+ diffSqa/sigmaSqj) < 5.99)
-                    {
-                        if(!nearest.count(i))
-                        {
-                            sunTho += (a.first/sigmaSqi);
-                            sunSigmaInv += (1.0/sigmaSqi);
-                            nearest.insert(i);
-                            //                            cout<<"insert "<<i<<endl;
-                        }
-                        if(!nearest.count(j))
-                        {
-                            sunTho += (b.first/sigmaSqj);
-                            sunSigmaInv += (1.0/sigmaSqj);
-                            nearest.insert(j);
-                            //                            cout<<"insert "<<j<<endl;
-                        }
-                    }
+                    kpit2.first->fused = true;
+                    break;
                 }
             }
-            int totalCompact = (int)nearest.size();
-            if(totalCompact > lambdaN)
-            {
-                // fuse
-                float tho = sunTho / sunSigmaInv;
-                float sigmaSquare = 1.0 / sunSigmaInv;
-//float thoM = kp1.mDepth;
-                kp1.fused = true;
-                kp1.tho = tho;
-                kp1.sigma = sqrt(sigmaSquare);
-                cout<<"point "<<kp1.pt<<" in kf "<<kfid << " fused: tho="<<tho<<", sigma="<<kp1.sigma<<endl;
-
-                // set hypotheses fuse flag
-                map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
-//int hypoCount = 1;
-                for(auto &kpit2 : rel)
-                {
-                    int fxidx = kpit2.second;
-                    for(const int fsi : nearest)
-                    {
-                        if(fsi == fxidx)
-                        {
-                            kpit2.first->fused = true;
-                            break;
-                        }
-                    }
-//                    cout<<"kpit2 fused true"<<endl;
-//thoM += kpit2.first->mDepth;
-//hypoCount++;
-                }
-//kp1.mDepth = thoM / hypoCount;
-            }
         }
-
-        if(kp1.fused){
-
-            const float zh = 1.0/kp1.tho;
-            if(zh>0) {
-                if(fabs(kp1.mDepth-zh)<0.05 * kp1.mDepth){
-                    kp1.mDepth = zh;
-                }
-            }
-
-        }else{
-            continue;
-        }
-
-
-//        cout<<"proj"<<endl;
-        cv::Mat x3D = UnprojectStereo(kp1, pKF);
-        if(x3D.empty()){
-            continue;
-        }
-//        cout<<"proj succ"<<endl;
-
-        // Triangulation is succesfull
-        MapPoint* pMP = new MapPoint(x3D,pKF,mpMap);
-
-//            pMP->AddObservation(mpCurrentKeyFrame,idx1);
-//            pMP->AddObservation(pKF2,idx2);
-
-//            mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
-//            pKF2->AddMapPoint(pMP,idx2);
-
-//            pMP->ComputeDistinctiveDescriptors();
-
-//            pMP->UpdateNormalAndDepth();
-
-        mpMap->AddMapPoint(pMP);
-//            mlpRecentAddedMapPoints.push_back(pMP);
     }
+}
+
+void MapReconstructor::denoise(KeyFrame* pKF)
+{
+    long kfid = pKF->mnId;
+    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
+    for(auto &kpit : keyPoints)
+    {
+        RcKeyPoint &kp1 = kpit.second;
+        //check neighbour hypos
+        int neighbourHypos = 0;
+
+        vector<pair<float, float>> nbrhypos;
+
+        kp1.eachNeighbourCords([&](Point2f pt){
+            if(keyPoints.count(pt))
+            {
+                RcKeyPoint &kpn = keyPoints.at(pt);
+                if(kpn.fused)
+                {
+                    nbrhypos.push_back(make_pair(kpn.tho, kpn.sigma));
+                    neighbourHypos++;
+                }
+            }
+        });
+
+        if(neighbourHypos<2)
+        {
+            continue;
+        }
+        // ka square test
+        float tho, sigma;
+        set<int> nearest;
+        int totalCompact = KaTestFuse(nbrhypos, tho, sigma, nearest);
+        if(totalCompact < 2 && kp1.fused)
+        {
+            kp1.fused = false;
+        }
+        else if(totalCompact>=2 && !kp1.fused)
+        {
+            kp1.fused = true;
+            kp1.tho = tho;
+            kp1.sigma = sigma;
+//            kp1.addHypo(tho, sigma, 0);
+        }
+        addKeyPointToMap(kp1, pKF);
+    }
+}
+
+int MapReconstructor::KaTestFuse(vector<pair<float, float>> &hypos, float &tho, float &sigma, set<int> &nearest)
+{
+    int total = hypos.size();
+    int fusedCount = 0;
+    if(total != 0)
+    {
+        float sumTho = 0, sumSigmaInv = 0;
+        // ka square check between every two hypotheses
+        for (int i = 0; i < total; i++)
+        {
+            for (int j = i + 1; j < total; j++)
+            {
+                pair<float, float> a = hypos[i], b = hypos[j];
+
+                float diffSqa = (a.first - b.first) * (a.first - b.first);
+                float sigmaSqi = a.second * a.second, sigmaSqj = b.second*b.second;
+
+                if((diffSqa/sigmaSqi + diffSqa/sigmaSqj) < 5.99)
+                {
+                    if(!nearest.count(i))
+                    {
+                        sumTho += (a.first/sigmaSqi);
+                        sumSigmaInv += (1.0/sigmaSqi);
+                        nearest.insert(i);
+                    }
+
+                    if(!nearest.count(j))
+                    {
+                        sumTho += (b.first/sigmaSqj);
+                        sumSigmaInv += (1.0/sigmaSqj);
+                        nearest.insert(j);
+                    }
+                }
+            }
+        }
+
+        fusedCount = (int)nearest.size();
+
+        // fuse
+        tho = sumTho / sumSigmaInv;
+        sigma = sqrt(1.0 / sumSigmaInv);
+    }
+    return fusedCount;
+}
+
+void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
+{
+    if(kp1.fused){
+
+        const float zh = 1.0/kp1.tho;
+        if(zh>0) {
+            if(fabs(kp1.mDepth-zh)<0.05 * kp1.mDepth){
+                kp1.mDepth = zh;
+            }
+        }
+
+        cv::Mat x3D = UnprojectStereo(kp1, pKF);
+        if(!x3D.empty()){
+
+            MapPoint* pMP = new MapPoint(x3D,pKF,mpMap);
+            mpMap->AddMapPoint(pMP);
+            pMP->UpdateNormalAndDepth();
+
+        }
+    }
+
+    //            pMP->AddObservation(mpCurrentKeyFrame,idx1);
+    //            pMP->AddObservation(pKF2,idx2);
+
+    //            mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
+    //            pKF2->AddMapPoint(pMP,idx2);
+
+    //            pMP->ComputeDistinctiveDescriptors();
+
+    //            pMP->UpdateNormalAndDepth();
+
+    //        mpMap->AddMapPoint(pMP);
+    //            mlpRecentAddedMapPoints.push_back(pMP);
 }
 
 void MapReconstructor::StartKeyFrameQueueProcess()

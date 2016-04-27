@@ -82,6 +82,12 @@ public:
         // store neighbour info for epipolar search
         void fetchNeighbours(cv::Mat &image, cv::Mat &gradient)
         {
+            /*eachNeighbourCords([&](cv::Point2f ptn){
+                vector<float> msg;
+                msg.push_back(image.at<float>(ptn));
+                msg.push_back(gradient.at<float>(ptn));
+                neighbours.push_back(msg);
+            });*/
             // pixel on edge check ?
             const float degtorad = M_PI/180;  // convert degrees
             for(int i=0;i<360;i+=45)
@@ -119,6 +125,19 @@ public:
 
             upper = neighbours[index];
             lower = neighbours[(index+4)%8];
+        }
+
+        template <typename Func>
+        void eachNeighbourCords(Func const& func)
+        {
+            const float degtorad = M_PI/180;  // convert degrees
+            for(int i=0;i<360;i+=45)
+            {
+                int dx = round(cos(i*degtorad));
+                int dy = round(sin(i*degtorad));
+                cv::Point2f cur = cv::Point2f(pt.x+dx, pt.y+dy);
+                func(cur);
+            }
         }
     };
     struct Point2fLess
@@ -191,6 +210,9 @@ public:
     bool cordInImageBounds(float x, float y, int width, int height);
 
     void fuseHypo(KeyFrame* pKF);
+    int KaTestFuse(std::vector<std::pair<float, float>> &hypos, float &tho, float &sigma, set<int> &nearest);
+    void denoise(KeyFrame* pKF);
+    void addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
     
     bool getSearchAreaForWorld3DPointInKF (  KeyFrame * const pCurrentKF,  KeyFrame* const pNeighborKF, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2,int& upperBoundXInKF2, int& upperBoundYInKF2 );
 
