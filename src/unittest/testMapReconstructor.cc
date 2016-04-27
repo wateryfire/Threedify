@@ -84,10 +84,12 @@ bool getSearchAreaForWorld3DPointInKF ( KeyFrameStub* const  pKF1, KeyFrameStub*
        lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
        float x3D1=lower3Dw.at<float>(0);
        float y3D1=lower3Dw.at<float>(1);
-       float bound[]= {0.98*x3D1, 1.02*x3D1};
-       vector<float> xBound1(bound, bound+2);//todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-       bound= {0.98*y3D1, 1.02*y3D1};
-       vector<float> yBound1 (bound, bound+2);//todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       vector<float> xBound1 ;
+      xBound1.push_back(0.98*x3D1);
+      xBound1.push_back(1.02*x3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+       vector<float> yBound1;
+        yBound1.push_back(0.98*y3D1);
+        yBound1.push_back(1.02*y3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
        for(auto & x: xBound1)
        {
            for(auto & y: yBound1)
@@ -100,10 +102,12 @@ bool getSearchAreaForWorld3DPointInKF ( KeyFrameStub* const  pKF1, KeyFrameStub*
         
         float x3D2=upper3Dw.at<float>(0);
         float y3D2=upper3Dw.at<float>(1);
-        bound= {0.98*x3D2, 1.02*x3D2};
-        vector<float> xBound2 (bound, bound+2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-         bound= {0.98*y3D2, 1.02*y3D2};
-        vector<float> yBound2  (bound, bound+2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        vector<float> xBound2;
+        xBound2.push_back(0.98*x3D2);
+        xBound2.push_back(1.02*x3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
+        vector<float> yBound2;
+        yBound2.push_back(0.98*y3D2);
+        yBound2.push_back(1.02*y3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
         for(auto & x: xBound2)
            for(auto & y: yBound2)
                {
@@ -116,12 +120,13 @@ bool getSearchAreaForWorld3DPointInKF ( KeyFrameStub* const  pKF1, KeyFrameStub*
     //Project to  Neighbor KeyFrames
     
     float upperU = 0.0;
-    float upperV = 0.0;
+    float upperV =0.0;
     float lowerU = 0.0;
     float lowerV = 0.0;
     float tempU = 0.0;
     float tempV = 0.0;
     bool valid = false;
+   bool firstround = true;
     
     //currently only roughly search the area to ensure all deviation are covered in the search area.
     for(auto & bp: boundPoints)
@@ -129,6 +134,13 @@ bool getSearchAreaForWorld3DPointInKF ( KeyFrameStub* const  pKF1, KeyFrameStub*
          valid = pKF2->ProjectStereo(bp, tempU, tempV);
          if(!valid) 
                 return false;
+         if(firstround)
+         {
+             firstround = false;
+             upperU = lowerU = tempU;
+             upperV = lowerV = tempV;
+             continue;
+         }
         if ( tempU > upperU)
             upperU = tempU;
         

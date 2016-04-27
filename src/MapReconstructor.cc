@@ -780,6 +780,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     float tempU = 0.0;
     float tempV = 0.0;
     bool valid = false;
+    bool firstround = true;
     
     //currently only roughly search the area to ensure all deviation are covered in the search area.
     for(auto & bp: boundPoints)
@@ -787,6 +788,13 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
          valid = pKF2->ProjectStereo(bp, tempU, tempV);
          if(!valid) 
                 return false;
+         if(firstround)
+         {
+             firstround = false;
+             upperU = lowerU = tempU;
+             upperV = lowerV = tempV;
+             continue;
+         }
         if ( tempU > upperU)
             upperU = tempU;
         
