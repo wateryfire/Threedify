@@ -81,8 +81,6 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
         currentKeyFrame->mRefImgDepth.refcount = 0;
         currentKeyFrame->mRefImgDepth.release();
 
-        cout << "MapReconstructor: Release  gray image: " << currentKeyFrame->mRefImgGray.total() << " pixel(s) remain." << endl;
-
 		{
 			// Add to the second queue for the real-time map reconstruction
 		    unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
@@ -168,6 +166,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             // 2. estimate octave
             // judge which interval of one point on edge belongs to, give an approximate estimation of octave
             int octave;
+if(!pKF->IsInImage(col,row))continue;
             float depth = depths.at<float>(Point(col, row));
             if(depth<=0 || depth>8)
             {
@@ -501,7 +500,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
 ////////////////////////
         tho0 = 1/kp1.mDepth;
-        sigma0 /= 3;
+        sigma0 /= 2;
+width=pKF2->mnMaxX - pKF2->mnMinX;
+height=pKF2->mnMaxY - pKF2->mnMinY;
 ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -511,11 +512,11 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ////////////////////////
         /// \brief minU
         ///
-//        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
-//        if(!valid) continue;
-//        u0=lowerBoundXInKF2;
-//        u1=upperBoundXInKF2;
+        //int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+        //bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+        //if(!valid) continue;
+        //u0=lowerBoundXInKF2;
+        //u1=upperBoundXInKF2;
         ///
         /// ////////////////////
 
@@ -526,25 +527,27 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float offset = 1.0, dx, dy;
         //////
         ///
-//        minV = lowerBoundYInKF2;
-//        maxV = upperBoundYInKF2;
-//        offset = 0;
-//        b=0;
+        //minV = lowerBoundYInKF2;
+        //maxV = upperBoundYInKF2;
+        //offset = 0;
+        //b=0;
         ///
         //////
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
         float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
 
+        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
+
         Point2f startCord;
         Point2f endCord;
-        if(abs(-a / b) > (height/(2*offset)))
+        if(parralexWithYAxis)
         {
             minV = 0;
             maxV = height;
             //////
             ///
-//            minV = lowerBoundYInKF2;
-//            maxV = upperBoundYInKF2;
+            //minV = lowerBoundYInKF2;
+            //maxV = upperBoundYInKF2;
             ///
             //////
             startCord.x = minU;
@@ -575,7 +578,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
                 minU = max(startCord.x, minU);
                 maxU = min(maxU, endCord.x);
-                if(b!=0)
+                if(!parralexWithYAxis)
                 {
                     minV = -(c + a * minU) / b;
                     maxV = -(c + a * minU) / b;
@@ -601,7 +604,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cout<<"dy "<<dy<<endl;
 
         Point2f cordP;
-int count1=0,count2=0;
         while(startCord.x < (maxU + 1.0))
         {
             float x = startCord.x, y = startCord.y;
@@ -627,42 +629,14 @@ int count1=0,count2=0;
                 }
 
                 y += 1.0;
-count2++;
-if(count2>10000){
-        cout<<"count2 "<<endl;
-        cout<<"start "<<startCord<<endl;
-        cout<<"minU "<<minU<<endl;
-        cout<<"maxU "<<maxU<<endl;
-        cout<<"maxV "<<maxV<<endl;
-        cout<<"minV "<<minV<<endl;
-        cout<<"offsetU "<<offsetU<<endl;
-        cout<<"offsetV "<<offsetV<<endl;
-        cout<<"dx "<<dx<<endl;
-        cout<<"dy "<<dy<<endl;
-break;
-}
             }
 
             startCord.x += dx;
             startCord.y += dy;
-            if(b!=0)
+            if(!parralexWithYAxis)
             {
                 maxV += dy;
             }
-count1++;
-if(count1>10000){
-        cout<<"count1 "<<endl;
-        cout<<"start "<<startCord<<endl;
-        cout<<"minU "<<minU<<endl;
-        cout<<"maxU "<<maxU<<endl;
-        cout<<"maxV "<<maxV<<endl;
-        cout<<"minV "<<minV<<endl;
-        cout<<"offsetU "<<offsetU<<endl;
-        cout<<"offsetV "<<offsetV<<endl;
-        cout<<"dx "<<dx<<endl;
-        cout<<"dy "<<dy<<endl;
-break;
-}
         }
 
         // use the best match point to estimate the distribution
