@@ -36,12 +36,6 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     height = fSettings["Camera.height"];
 }
 
-MapReconstructor::MapReconstructor():
-        mpMap(NULL), mpKeyFrameDB(NULL), mpORBVocabulary(NULL), mpTracker(NULL)
-{
-}
-
-
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
 {
     unique_lock<mutex> lock(mMutexForKeyFrameQueue);
