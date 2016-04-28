@@ -509,7 +509,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
 ////////////////////////
         tho0 = 1/kp1.mDepth;
-//        sigma0 /= 2;
+        sigma0 /= 2;
 //width=pKF2->mnMaxX - pKF2->mnMinX;
 //height=pKF2->mnMaxY - pKF2->mnMinY;
 ////////////////////////
@@ -521,11 +521,15 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ////////////////////////
         /// \brief minU
         ///
-        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
-        if(!valid) continue;
-        u0=lowerBoundXInKF2;
-        u1=upperBoundXInKF2;
+//        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+//        lowerBoundXInKF2 /=2;
+//        lowerBoundYInKF2/=2;
+//        upperBoundXInKF2 /=2;
+//        upperBoundYInKF2 /=2;
+//        if(!valid) continue;
+//        u0=lowerBoundXInKF2;
+//        u1=upperBoundXInKF2;
         ///
         /// ////////////////////
 
@@ -533,13 +537,13 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float minV = 0, maxV = 0;
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
-        float offset = 3.0, dx, dy;
+        float offset = 1.0, dx, dy;
         //////
         ///
-        minV = lowerBoundYInKF2;
-        maxV = upperBoundYInKF2;
-        offset = 0;
-        b=0;
+//        minV = lowerBoundYInKF2;
+//        maxV = upperBoundYInKF2;
+//        offset = 0;
+//        b=0;
         ///
         //////
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
@@ -555,8 +559,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             maxV = height;
             //////
             ///
-            minV = lowerBoundYInKF2;
-            maxV = upperBoundYInKF2;
+//            minV = lowerBoundYInKF2;
+//            maxV = upperBoundYInKF2;
             ///
             //////
             startCord.x = minU;
@@ -739,7 +743,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
        
         float XcEst = P3DcEst.at<float>(0);
         float YcEst = P3DcEst.at<float>(1);
-        cout <<"Xc estimation: "<< XcEst << " Yc estimation:"<<YcEst << "  Zc estimation"<< z<<endl;
+//        cout <<"Xc estimation: "<< XcEst << " Yc estimation:"<<YcEst << "  Zc estimation"<< z<<endl;
         float XcBound[]= {XcEst-xDelta, XcEst+xDelta};
         float YcBound[]= { YcEst-yDelta,  YcEst+yDelta};
        for ( int xindex = 0; xindex < 2; xindex ++)
@@ -780,14 +784,14 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
    bool firstround = true;
     
     //currently only roughly search the area to ensure all deviation are covered in the search area.
-    cout <<"bound points"<<endl;
+//    cout <<"bound points"<<endl;
     for(auto & bp: boundPoints)
     {
          valid = pKF2->ProjectStereo(bp, tempU, tempV);
          if(!valid) 
                 return false;
         
-         cout << tempU<< "  " <<       tempV << endl;
+//         cout << tempU<< "  " <<       tempV << endl;
          if(firstround)
          {
              firstround = false;
@@ -1252,8 +1256,8 @@ void MapReconstructor::denoise(KeyFrame* pKF)
             if(!kp1.fused)
             {
                 // check index
-//                sort(matchedIndexes.begin(), matchedIndexes.end());
-//                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 4) continue;
+                sort(matchedIndexes.begin(), matchedIndexes.end());
+                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 4) continue;
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sigma;
