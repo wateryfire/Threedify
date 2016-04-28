@@ -167,7 +167,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             // 2. estimate octave
             // judge which interval of one point on edge belongs to, give an approximate estimation of octave
             int octave;
-if(!pKF->IsInImage(col,row))continue;
+//if(!pKF->IsInImage(col,row))continue;
             float depth = depths.at<float>(Point(col, row));
             if(depth<=0 /*|| depth>8*/)
             {
@@ -533,7 +533,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float minV = 0, maxV = 0;
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
-        float offset = 1.0, dx, dy;
+        float offset = 3.0, dx, dy;
         //////
         ///
         minV = lowerBoundYInKF2;
@@ -728,6 +728,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
      boundPoints.reserve(8);  //todo: to configurable, considering the deviation in (R,t), in depth so it has 3d distribution cubic.
     if(z>1 && z<8)  //todo: to configurable, depth <= 1m is not good for RGBD sensor, depth >=8 m cause the depth distribution not sensitive.
     {
+
         float ZcBound[] = {0.95*z, 1.05*z};  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
    
         const float u = twoDPoint.pt.x;
@@ -762,6 +763,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
                 boundPoints.push_back( P3Dw);
        }
          
+
     }
     else
         return false;
@@ -1186,22 +1188,19 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         kp1.fused = true;
 
         // set hypotheses fuse flag
-        map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
-        for(auto &kpit2 : rel)
-        {
-            int fxidx = kpit2.second;
-            for(const int fsi : nearest)
-            {
-                if(fsi == fxidx)
-                {
-                    RcKeyPoint* pkp2 = kpit2.first;
-                    pkp2->fused = true;
-                    pkp2->tho = kp1.tho;
-                    pkp2->sigma = kp1.sigma;
-                    break;
-                }
-            }
-        }
+//        map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
+//        for(auto &kpit2 : rel)
+//        {
+//            int fxidx = kpit2.second;
+//            for(const int fsi : nearest)
+//            {
+//                if(fsi == fxidx)
+//                {
+//                    RcKeyPoint* pkp2 = kpit2.first;
+//                    pkp2->fused = true;
+//                }
+//            }
+//        }
     }
 }
 
@@ -1219,6 +1218,8 @@ void MapReconstructor::denoise(KeyFrame* pKF)
 
         vector<pair<float, float>> nbrhypos;
 
+        vector<int> matchedIndexes;
+        int index = 0;
         kp1.eachNeighbourCords([&](Point2f pt){
             if(keyPoints.count(pt))
             {
@@ -1227,8 +1228,11 @@ void MapReconstructor::denoise(KeyFrame* pKF)
                 {
                     nbrhypos.push_back(make_pair(kpn.tho, kpn.sigma));
                     neighbourHypos++;
+                    matchedIndexes.push_back(index);
                 }
             }
+
+            index ++;
         });
 
         if(neighbourHypos<2)
@@ -1239,14 +1243,17 @@ void MapReconstructor::denoise(KeyFrame* pKF)
         float tho, sigma;
         set<int> nearest;
         int totalCompact = KaTestFuse(nbrhypos, tho, sigma, nearest);
-        if(totalCompact < 2 && kp1.fused)
+        if(totalCompact < 2)
         {
             continue;
         }
-        else if(totalCompact>=2)
+        else
         {
             if(!kp1.fused)
             {
+                // check index
+//                sort(matchedIndexes.begin(), matchedIndexes.end());
+//                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 4) continue;
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sigma;
@@ -1313,7 +1320,7 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         const float zh = 1.0/kp1.tho;
         float error = fabs(kp1.mDepth-zh);
         if(zh>0) {
-            if(error > 0.03 * kp1.mDepth && error<0.1 * kp1.mDepth){
+            if(error < 0.03/* * kp1.mDepth*/ /*&& error<0.1 * kp1.mDepth*/){
                 kp1.mDepth = zh;
             }
         }
