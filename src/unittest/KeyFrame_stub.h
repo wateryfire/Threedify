@@ -37,9 +37,11 @@ public:
     void SetPose(const cv::Mat &Tcw);
 
     cv::Mat UnprojectStereo(float u, float v, float z);
+    cv::Mat UnprojectToCameraCoord(float u,float v, float z);
 
     
     bool ProjectStereo(cv::Mat& x3Dw, float& u, float& v);
+    cv::Mat GetPoseInverse();
 
     // Image
     bool IsInImage(const float &x, const float &y) const;

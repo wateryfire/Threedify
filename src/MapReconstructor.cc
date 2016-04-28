@@ -717,50 +717,51 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2, int& upperBoundXInKF2, int& upperBoundYInKF2 )
 {
     //Uproject lower and upper point from KF1 to world
+     //Uproject lower and upper point from KF1 to world
     const float z = twoDPoint.mDepth;
+    const float xDelta = 0.01*z, yDelta = 0.01*z;
+    cv::Mat P3DcEst = cv::Mat();
     cv::Mat lower3Dw = cv::Mat();
      cv::Mat upper3Dw = cv::Mat();
+      cv::Mat KF1Twc = cv::Mat();
      vector<cv::Mat>  boundPoints;
      boundPoints.reserve(8);  //todo: to configurable, considering the deviation in (R,t), in depth so it has 3d distribution cubic.
     if(z>1 && z<8)  //todo: to configurable, depth <= 1m is not good for RGBD sensor, depth >=8 m cause the depth distribution not sensitive.
     {
-        float lowerZ = 0.95*z;  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
-        float upperZ = 1.05*z;  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
+        float ZcBound[] = {0.95*z, 1.05*z};  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
+   
         const float u = twoDPoint.pt.x;
         const float v = twoDPoint.pt.y;
   
-       lower3Dw = pKF1->UnprojectStereo(u,v, lowerZ);
-       float x3D1=lower3Dw.at<float>(0);
-       float y3D1=lower3Dw.at<float>(1);
-       vector<float> xBound1 ;
-       xBound1.push_back(0.98*x3D1);
-       xBound1.push_back(1.02*x3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-       vector<float> yBound1;
-        yBound1.push_back(0.98*y3D1);
-        yBound1.push_back(1.02*y3D1); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-       for(auto & x: xBound1)
-       {
-           for(auto & y: yBound1)
-               {
-                    boundPoints.push_back((cv::Mat_<float>(3,1) << x, y, lowerZ));
-                }
-        }
+       P3DcEst  = pKF1->UnprojectToCameraCoord(u,v,z);
+       KF1Twc = pKF1->GetPoseInverse();
        
-       upper3Dw = pKF1->UnprojectStereo(u,v, upperZ);
-        
-        float x3D2=upper3Dw.at<float>(0);
-        float y3D2=upper3Dw.at<float>(1);
-        vector<float> xBound2;
-        xBound2.push_back(0.98*x3D2);
-        xBound2.push_back(1.02*x3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-        vector<float> yBound2;
-        yBound2.push_back(0.98*y3D2);
-        yBound2.push_back(1.02*y3D2); //todo: to configurable, assume the deviation in (R,t) estimation has 2% portion of accuracy deviation.
-        for(auto & x: xBound2)
-           for(auto & y: yBound2)
-               {
-                    boundPoints.push_back((cv::Mat_<float>(3,1) << x, y, upperZ));
-                }
+        float XcEst = P3DcEst.at<float>(0);
+        float YcEst = P3DcEst.at<float>(1);
+        cout <<"Xc estimation: "<< XcEst << " Yc estimation:"<<YcEst << "  Zc estimation"<< z<<endl;
+        float XcBound[]= {XcEst-xDelta, XcEst+xDelta};
+        float YcBound[]= { YcEst-yDelta,  YcEst+yDelta};
+       for ( int xindex = 0; xindex < 2; xindex ++)
+       {
+           cv::Mat P3Dc = (cv::Mat_<float>(3,1) <<XcBound[xindex], YcEst, z);
+                    cv::Mat P3Dw=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc+KF1Twc.rowRange(0,3).col(3);
+             
+                 
+                    boundPoints.push_back( P3Dw);
+       }
+       for ( int yindex = 0; yindex < 2; yindex ++)
+       {
+           cv::Mat P3Dc = (cv::Mat_<float>(3,1) <<XcEst, YcBound[yindex], z);
+           cv::Mat P3Dw=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc+KF1Twc.rowRange(0,3).col(3);
+            boundPoints.push_back( P3Dw);
+       }
+       for ( int zindex = 0; zindex < 2; zindex ++)
+       {
+                cv::Mat P3Dc = (cv::Mat_<float>(3,1) <<XcEst, YcEst, ZcBound[zindex]);
+                cv::Mat P3Dw=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc+KF1Twc.rowRange(0,3).col(3);
+                boundPoints.push_back( P3Dw);
+       }
+         
     }
     else
         return false;
@@ -768,20 +769,23 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     //Project to  Neighbor KeyFrames
     
     float upperU = 0.0;
-    float upperV = 0.0;
+    float upperV =0.0;
     float lowerU = 0.0;
     float lowerV = 0.0;
     float tempU = 0.0;
     float tempV = 0.0;
     bool valid = false;
-    bool firstround = true;
+   bool firstround = true;
     
     //currently only roughly search the area to ensure all deviation are covered in the search area.
+    cout <<"bound points"<<endl;
     for(auto & bp: boundPoints)
     {
          valid = pKF2->ProjectStereo(bp, tempU, tempV);
          if(!valid) 
                 return false;
+        
+         cout << tempU<< "  " <<       tempV << endl;
          if(firstround)
          {
              firstround = false;

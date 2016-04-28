@@ -105,8 +105,24 @@ cv::Mat KeyFrameStub::UnprojectStereo(float u,float v, float z)
         return cv::Mat();
 }
 
+cv::Mat KeyFrameStub::UnprojectToCameraCoord(float u,float v, float z)
+{
+    if(z>0)
+    {
+        const float x = (u-cx)*z*invfx;
+        const float y = (v-cy)*z*invfy;
+        cv::Mat x3Dc = (cv::Mat_<float>(3,1) << x, y, z);
 
+        return x3Dc;
+    }
+    else
+        return cv::Mat();
+}
 
+cv::Mat KeyFrameStub::GetPoseInverse()
+{
+    return Twc.clone();
+}
 
 
 } //namespace ORB_SLAM
