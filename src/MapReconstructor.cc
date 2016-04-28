@@ -518,6 +518,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
         float u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
 
+        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
+
         ////////////////////////
         /// \brief minU
         ///
@@ -537,7 +539,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float minV = 0, maxV = 0;
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
-        float offset = 1.0, dx, dy;
+        float offset = 3.0, dx, dy;
         //////
         ///
 //        minV = lowerBoundYInKF2;
@@ -599,10 +601,10 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             }
         }
 
-        minU -= offsetU;
-        maxU += offsetU;
-        minV -= offsetV;
-        maxV += offsetV;
+//        minU -= offsetU;
+//        maxU += offsetU;
+//        minV -= offsetV;
+//        maxV += offsetV;
         startCord.x = minU;
         startCord.y = minV;
 
@@ -644,12 +646,23 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 y += 1.0;
             }
 
-            startCord.x += dx;
-            startCord.y += dy;
-            if(!parralexWithYAxis)
+            if(x<=up)
             {
-                maxV += dy;
+                minV -= offsetV*(up - x)/(up - u0);
+                maxV += offsetV*(up - x)/(up - u0);
             }
+            else
+            {
+                minV -= offsetV*(x - up)/(u1 - up);
+                maxV += offsetV*(x - up)/(u1 - up);
+            }
+
+            startCord.x += dx;
+            startCord.y = minV;
+//            if(!parralexWithYAxis)
+//            {
+//                maxV += dy;
+//            }
         }
 
         // use the best match point to estimate the distribution
