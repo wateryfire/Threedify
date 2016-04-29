@@ -465,15 +465,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     {
         RcKeyPoint &kp1 = kpit.second;
 
-        if(kp1.fused)
-        {
-//            cout<<"kp1 already fused"<<endl;
-//            continue;
-        }
-
         // prepare data
         float intensity1 = kp1.intensity;
-        float angle1 = kp1.orientation;
+//        float angle1 = kp1.orientation;
         float gradient1 = kp1.gradient;
 
         float minSimilarityError = -1.0;
@@ -481,8 +475,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // epipolar line params
         const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
-//        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
-        float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
+        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
 
         if(a==0&&b==0)
@@ -495,30 +488,17 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
 //        cv::Mat xp1 = pKF1->mK.inv() * xp;
 
-        // upper/lower cordinate bounds in second image
-//        float data1[] = {1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax};
-//        float data2[] = {1/thoMin,0,0,0,1/thoMin,0,0,0,1/thoMin};
-//        cv::Mat thoMatMax(3, 3, CV_32FC1, data1);
-//        cv::Mat thoMatMin(3, 3, CV_32FC1, data2);
-//        cv::Mat thoMatMax = (cv::Mat_<float>(3,3) << 1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax);
-//        cv::Mat thoMatMin = (cv::Mat_<float>(3,3) << 1/thoMax,0,0,0,1/thoMax,0,0,0,1/thoMax);
-//        Mat imgSense0 = pKF2->mK * R21 * pKF2->mK.inv() * thoMatMax + pKF2->mK * t21;
-//        float u0 = imgSense0.at<float>(0);
-//        Mat imgSense1 = pKF2->mK * R21 * pKF2->mK.inv() * thoMatMin + pKF2->mK * t21;
-//        float u1 = imgSense1.at<float>(0);
-
-////////////////////////
+        ////////////////////////
+        /// fix the search area nearby the projection
         tho0 = 1/kp1.mDepth;
-        sigma0 /= 2;
-//width=pKF2->mnMaxX - pKF2->mnMinX;
-//height=pKF2->mnMaxY - pKF2->mnMinY;
-////////////////////////
+        sigma0 /= 4;
+        ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
         float u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
         float u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
 
-        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
+//        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
 
         ////////////////////////
         /// \brief minU
@@ -535,11 +515,13 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ///
         /// ////////////////////
 
+//        if(fabs(u0 - u1) < 0.1) continue;
+
         float minU = min(u0, u1), maxU = max(u0, u1);
         float minV = 0, maxV = 0;
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
-        float offset = 3.0, dx, dy;
+        float offset = 1.0, dx, dy;
         //////
         ///
 //        minV = lowerBoundYInKF2;
@@ -601,10 +583,10 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             }
         }
 
-//        minU -= offsetU;
-//        maxU += offsetU;
-//        minV -= offsetV;
-//        maxV += offsetV;
+        minU -= offsetU;
+        maxU += offsetU;
+        minV -= offsetV;
+        maxV += offsetV;
         startCord.x = minU;
         startCord.y = minV;
 
@@ -617,6 +599,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cout<<"offsetV "<<offsetV<<endl;
 //        cout<<"dx "<<dx<<endl;
 //        cout<<"dy "<<dy<<endl;
+//        cout<<"u0 "<<u0<<endl;
+//        cout<<"u1 "<<u1<<endl;
+//        cout<<"up "<<up<<endl;
 
         Point2f cordP;
         while(startCord.x < (maxU + 1.0))
@@ -646,27 +631,16 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 y += 1.0;
             }
 
-            if(x<=up)
-            {
-                minV -= offsetV*(up - x)/(up - u0);
-                maxV += offsetV*(up - x)/(up - u0);
-            }
-            else
-            {
-                minV -= offsetV*(x - up)/(u1 - up);
-                maxV += offsetV*(x - up)/(u1 - up);
-            }
-
             startCord.x += dx;
-            startCord.y = minV;
-//            if(!parralexWithYAxis)
-//            {
-//                maxV += dy;
-//            }
+            startCord.y += dy;
+            if(!parralexWithYAxis)
+            {
+                maxV += dy;
+            }
         }
 
         // use the best match point to estimate the distribution
-        if(minSimilarityError >=0 && minSimilarityError<1.0e+5){
+        if(minSimilarityError >=0 && minSimilarityError<2.0e+2){
 //            cout<<matchedCord<<"matchedCord "<<minSimilarityError<<endl;
             if(!keyPoints2.count(matchedCord)){
 //                cout<<"can't find back"<<endl;
@@ -990,9 +964,9 @@ eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
         }else if(angleDiff > 360){
             angleDiff -= 360.0;
         }*/
-//angleDiff = fabs(angleDiff);
+angleDiff = fabs(angleDiff);
 
-    while(angleDiff <0 || angleDiff > 90)
+    /*while(angleDiff <0 || angleDiff > 90)
     {
         if(angleDiff < 0){
             angleDiff += 360.0;
@@ -1006,7 +980,7 @@ eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
                 angleDiff=180.0 - angleDiff;
             }
         }
-    }
+    }*/
 
     if(angleDiff >= lambdaThe){
         return similarityError;
@@ -1186,11 +1160,6 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
     for(auto &kpit : keyPoints)
     {
         RcKeyPoint &kp1 = kpit.second;
-        if(kp1.fused)
-        {
-//            cout<<"already fs"<<endl;
-//            continue;
-        }
         //        cout<<kp1.hypotheses.size()<<endl;
         vector<pair<float, float>> &hypos = kp1.hypotheses;
 
@@ -1262,10 +1231,12 @@ void MapReconstructor::denoise(KeyFrame* pKF)
         int totalCompact = KaTestFuse(nbrhypos, tho, sigma, nearest);
         if(totalCompact < 2)
         {
+            // denoise without neighbour hypos support
             continue;
         }
         else
         {
+            // grow with neighbour hypos support
             if(!kp1.fused)
             {
                 // check index
@@ -1275,9 +1246,11 @@ void MapReconstructor::denoise(KeyFrame* pKF)
                 kp1.tho = tho;
                 kp1.sigma = sigma;
             }
+
             valid = true;
 //            kp1.addHypo(tho, sigma, 0);
         }
+
         if(valid)
         {
             addKeyPointToMap(kp1, pKF);
@@ -1346,8 +1319,8 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         if(!x3D.empty()){
 
             MapPoint* pMP = new MapPoint(x3D,pKF,mpMap);
-            mpMap->AddMapPoint(pMP);
             pMP->UpdateNormalAndDepth();
+            mpMap->AddMapPoint(pMP);
 
         }
     }
@@ -1363,7 +1336,6 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
     //            pMP->UpdateNormalAndDepth();
 
     //        mpMap->AddMapPoint(pMP);
-    //            mlpRecentAddedMapPoints.push_back(pMP);
 }
 
 void MapReconstructor::StartKeyFrameQueueProcess()
