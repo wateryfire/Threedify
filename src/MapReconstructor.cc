@@ -297,16 +297,20 @@ void MapReconstructor::RunToReconstructMap()
         {
             retryCount ++;
             sleep(1);
-continue;
+            continue;
 //            sleep(3);
         }
 
         if(frameValid) {
+
+//            processedKeyFrame = mlpKFQueueForReonstruction.;
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
 
-            denoise(currentKeyFrame);
+            intraKeyFrameChecking(currentKeyFrame);
+
+
 
 //            {
 //                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
@@ -343,7 +347,7 @@ bool MapReconstructor::CheckNewKeyFrames(KeyFrame* currentKeyFrame)
 {
 //    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
 //    return (int)vpNeighKFs.size() >= kN;
-    return mlpKFQueueForReonstruction.size() > 10;
+    return (int)mlpKFQueueForReonstruction.size() > 10;
 }
 
 void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
@@ -458,6 +462,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // inverse depth of sense
     float tho0, sigma0;
     calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
+    sigma0 /= 2; //DEBUG
     cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
     // search for each point in first image
@@ -491,7 +496,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ////////////////////////
         /// fix the search area nearby the projection
         tho0 = 1/kp1.mDepth;
-        sigma0 /= 4;
         ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -640,7 +644,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         }
 
         // use the best match point to estimate the distribution
-        if(minSimilarityError >=0 && minSimilarityError<2.0e+2){
+        if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
 //            cout<<matchedCord<<"matchedCord "<<minSimilarityError<<endl;
             if(!keyPoints2.count(matchedCord)){
 //                cout<<"can't find back"<<endl;
@@ -679,7 +683,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
-                errorSquare = 2;
+                errorSquare = max((float)1.0e-3, errorSquare);
             }
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
@@ -1163,6 +1167,9 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         //        cout<<kp1.hypotheses.size()<<endl;
         vector<pair<float, float>> &hypos = kp1.hypotheses;
 
+        // DEBUG
+        hypos.push_back(make_pair(1/kp1.mDepth, kp1.mDepth * 1000.0 * 0.01));
+
         set<int> nearest;
         int totalCompact = KaTestFuse(hypos, kp1.tho, kp1.sigma, nearest);
 
@@ -1190,7 +1197,7 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
     }
 }
 
-void MapReconstructor::denoise(KeyFrame* pKF)
+void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
 {
     long kfid = pKF->mnId;
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
@@ -1199,8 +1206,6 @@ void MapReconstructor::denoise(KeyFrame* pKF)
         RcKeyPoint &kp1 = kpit.second;
         //check neighbour hypos
         int neighbourHypos = 0;
-
-        bool valid = false;
 
         vector<pair<float, float>> nbrhypos;
 
@@ -1247,13 +1252,10 @@ void MapReconstructor::denoise(KeyFrame* pKF)
                 kp1.sigma = sigma;
             }
 
-            valid = true;
-//            kp1.addHypo(tho, sigma, 0);
-        }
+            kp1.intraCheckCount ++;
 
-        if(valid)
-        {
             addKeyPointToMap(kp1, pKF);
+//            kp1.addHypo(tho, sigma, 0);
         }
     }
 }
@@ -1314,6 +1316,7 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
                 kp1.mDepth = zh;
             }
         }
+        if(zh > 8) return;
 
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
         if(!x3D.empty()){

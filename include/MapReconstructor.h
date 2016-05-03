@@ -57,6 +57,13 @@ public:
         bool hasHypo;
         bool fused = false;
 
+        // check status
+        int intraCheckCount = 0;
+        int interCheckCount = 0;
+
+        // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquar
+//        vector<vector<float>> depthErrorEstimateFactor;
+
         // color if needed
         long rgb;
 
@@ -211,7 +218,7 @@ public:
 
     void fuseHypo(KeyFrame* pKF);
     int KaTestFuse(std::vector<std::pair<float, float>> &hypos, float &tho, float &sigma, set<int> &nearest);
-    void denoise(KeyFrame* pKF);
+    void intraKeyFrameChecking(KeyFrame* pKF);
     void addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
     
     bool getSearchAreaForWorld3DPointInKF (  KeyFrame * const pCurrentKF,  KeyFrame* const pNeighborKF, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2,int& upperBoundXInKF2, int& upperBoundYInKF2 );
