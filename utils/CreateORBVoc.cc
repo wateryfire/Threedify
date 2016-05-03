@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include<fstream>
+#include <fstream>
 // DBoW2
 //#include <DBoW2ori/DBoW2.h>
 //#include <DUtils/DUtils.h>
@@ -13,6 +13,7 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/features2d/features2d.hpp>
+
 // ROS
 /***********************************************
 #include <rosbag/bag.h> 
@@ -29,16 +30,13 @@ using namespace DBoW2;
 using namespace DUtils;
 using namespace std;
 using namespace ORB_SLAM2;
-using namespace cv;
+//using namespace cv;
 // - - - - - --- - - - -- - - - - -
 /// ORB Vocabulary
-typedef DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescriptor, DBoW2::FORB>
-ORBVocabulary;
+typedef DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescriptor, DBoW2::FORB> ORBVocabulary;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-void extractORBFeatures(cv::Mat &image, vector<vector<cv::Mat> > &features, ORBextractor* extractor);
-void changeStructureORB( const cv::Mat &descriptor,vector<cv::Mat> &out);
-void isInImage(vector<cv::KeyPoint> &keys, float &cx, float &cy, float &rMin, float &rMax, vector<bool> &mask);
+void isInImage(vector<cv::KeyPoint> &keys, float &cx, float &cy, float &rMin, float &rMax, vector<bool> &mask); //for future usage
 void createVocabularyFile(ORBVocabulary &voc, std::string &fileName, const vector<vector<cv::Mat> > &features);
 void LoadImages(const string &strFile, vector<string> &vstrImageFilenames);
 void prepareBagfile (const string & bagFile);
@@ -46,27 +44,27 @@ void prepareBagfile (const string & bagFile);
 int main(int argc, const char**  argv)
 {
     int nImages = 0;
-    vector<vector<cv::Mat > > features;
-    features.clear();
-    std::string vociName;
+    vector<vector<cv::Mat > > featuresVector;
+    featuresVector.clear();
+    std::string vocName;
     int nLevels = 6;
     // Extracting ORB features from bag file
      if ( argc < 3|| argc > 5 || strcmp("-help", argv[1]) == 0 ) //intentionllu to put argv comparison to the end, as there is possibility no argv[1] 
      {
          cout<<"Usage:  "<<endl;
          cout<<"CreateORBVoc -bagfile <bagfile> <VocFilename> (optional):  "<<endl;
-         cout<<"CreateORBVoc -dir <path> <VocFilename> (optional):  "<<endl;
+         cout<<"CreateORBVoc -imglst <path-to-imagelist> <VocFilename> (optional):  "<<endl;
          return 0;
      }
     
 
-    if (argc== 3 ||  !argv[2] )  // todo: need to add checking conditions that argv[2] contains invalid filename
+    if (argc== 3 ||  !argv[3] )  // todo: need to add checking conditions that argv[2] contains invalid filename
     {
-        vociName = "vociOmni.txt"; 
+        vocName = "ORBVoc.txt"; 
       }
      else
     { 
-        vociName = string(argv[2]); 
+        vocName = string(argv[3]); 
     }
              
 // = = =
@@ -110,37 +108,58 @@ int main(int argc, const char**  argv)
     ----------------------------------------------------------------------------------------------------------------------*/
     //work  for pic file list
     
-    if (strcmp("-dir", argv[1]) == 0 )
+    if (strcmp("-imglst", argv[1]) == 0 )
     {
-    vector<string> imageFileNames;
+        vector<string> imageFileNames;
+        string imgLstFile;
+         if ( !argv[2] )  // todo: need to add checking conditions that argv[2] contains invalid filename
+        {
+            cout << "Invalid ImageList File" << endl;
+          }
+         else
+        { 
+            imgLstFile = string(argv[2]); 
+        }
+       
+        LoadImages(imgLstFile, imageFileNames);
 
-    string strFile = string(argv[2])+"/rgb.txt";
-    LoadImages(strFile, imageFileNames);
-
-    int nImages = imageFileNames.size();
+        nImages = imageFileNames.size();
 
 
         // initialze ORBextractor
         int nLevels = 6;
         ORBextractor* extractor = new ORBextractor(1000,1.2,nLevels,1,20); //keep the same as in ORBSLAM2 code
 
-        vector<vector<cv::Mat > > features;
-        features.clear();
-        features.reserve(nImages);
+      
+        featuresVector.reserve(nImages);
 
        
         cv::Mat imageGray;
-         cv::Mat imageRGB;
+        cv::Mat imageRGB;
 
         
-//todo:  read from files
+//Extract features from each image from list and organize the features to vector <vector> format
       for(auto &imageit : imageFileNames)
       {
-                imageRGB = imread(imageit) ;
-                cvtColor(imageRGB, imageGray, CV_RGB2GRAY);
-                extractORBFeatures(imageGray, features, extractor);
+           
+            imageRGB = cv::imread(imageit) ;
+            cv::cvtColor(imageRGB, imageGray, CV_RGB2GRAY);
+            vector<cv::KeyPoint> keypoints;
+            cv::Mat descriptorORB;
+// extract
+            (*extractor)(imageGray, cv::Mat(), keypoints, descriptorORB);
+           
+           vector<cv::Mat >  featuresPerImg  ;
             
-        }
+            for (int i = 0; i < descriptorORB.rows; i++) 
+            {
+
+                featuresPerImg.push_back(descriptorORB.row(i));
+               
+            }
+             featuresVector.push_back(featuresPerImg);
+              cout << "... Extract ORB for "<<imageit << endl;
+      }
     
 
         cout << "... Extraction done!" << endl;
@@ -156,37 +175,15 @@ int main(int argc, const char**  argv)
     const WeightingType weight = TF_IDF;
     const ScoringType score = L1_NORM;
     ORBVocabulary voc(k, nLevels, weight, score);
-    createVocabularyFile(voc, vociName, features);
+
+    createVocabularyFile(voc, vocName, featuresVector);
     cout << "--- THE END ---" << endl;
     // = = =
     return 0;
 }
-// ----------------------------------------------------------------------------
-void extractORBFeatures(cv::Mat &image, vector<vector<cv::Mat> > &features, ORBextractor* extractor) {
-vector<cv::KeyPoint> keypoints;
-cv::Mat descriptorORB;
-// extract
-(*extractor)(image, cv::Mat(), keypoints, descriptorORB);
-//this need to check, personally, I dont think this needed for cluster.
-// reject features outside region of interest
-//vector<bool> mask;
-//float cx = 318.311759; float cy = 243.199269;
-//float rMin = 50; float rMax = 240;
-//isInImage(keypoints, cx, cy, rMin, rMax, mask);
-// create descriptor vector for the vocabulary
-features.push_back(vector<cv::Mat>());
-changeStructureORB(descriptorORB,  features.back());
-}
-// ----------------------------------------------------------------------------
-void changeStructureORB( const cv::Mat &descriptor, vector<cv::Mat> &out) {
-for (int i = 0; i < descriptor.rows; i++) {
-//no mask is needed
-//if(mask[i]) {
-out.push_back(descriptor.row(i));
-//}
-}
-}
-// ----------------------------------------------------------------------------
+
+/**************************************** 
+ * for future usage
 void isInImage(vector<cv::KeyPoint> &keys, float &cx, float &cy, float &rMin, float &rMax, vector<bool> &mask) {
 int N = keys.size();
 mask = vector<bool>(N, false);
@@ -200,6 +197,7 @@ mask[i] = true;
 }
 }
 }
+ * *****************************************/
 // ----------------------------------------------------------------------------
 void createVocabularyFile(ORBVocabulary &voc, std::string &fileName, const vector<vector<cv::Mat> > &features)
 {
@@ -228,8 +226,36 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames)
             stringstream ss;
             ss << s;
             string imageFileName;
+            cout << "original String "<<ss<< endl;
             ss >> imageFileName;
             vstrImageFilenames.push_back(imageFileName);
+             cout << "... Get Image File Names "<<imageFileName << endl;
         }
     }
 }
+
+/********************************************************
+ * todo: add configuration file
+ * *******************************************************
+ * 
+ * 
+void Initialize(string strSettingsFile)
+{
+            cv::FileStorage fSettings(strSettingsFile, cv::FileStorage::READ);
+            string imageListFile;
+            fSettings["ImageList"]>>imageListFile;
+            string vocFileName;
+             fSettings["VocabularyFile"]>>vocFileName;
+             int nfeatures = fSettings["ORBExtractor.nfeatures"];;
+             float scaleFactor= fSettings["ORBExtractor.scaleFactors"];
+            int scaleLevels=  fSettings["ORBExtractor.scaleLevels"];
+            int iniThFAST=  fSettings["ORBExtractor.iniThFAST"];
+            int minThFAST=  fSettings["ORBExtractor.minThFAST"];
+             int orbVocLevels =  fSettings["ORBVocabulary.levels"];
+             int orbVocBranches fSettings["ORBVocabulary.branches"];;
+             WeightingType weightingType ;
+            fSettings["ORBExtractor.scaleLevels"] >> weightingType ;
+            ScoringType scoringType;
+            fSettings["ORBExtractor.scaleLevels"] >> scoringType;
+}
+************************************************************/
