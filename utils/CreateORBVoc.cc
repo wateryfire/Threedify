@@ -40,6 +40,26 @@ void isInImage(vector<cv::KeyPoint> &keys, float &cx, float &cy, float &rMin, fl
 void createVocabularyFile(ORBVocabulary &voc, std::string &fileName, const vector<vector<cv::Mat> > &features);
 void LoadImages(const string &strFile, vector<string> &vstrImageFilenames);
 void prepareBagfile (const string & bagFile);
+inline vector<cv::Mat> getDescriptorVectorForImg(const string& imgFileName, ORBextractor& extractor)
+{
+            cv::Mat imageRGB = cv::imread(imgFileName) ;
+            cv::Mat imageGray;
+            cv::cvtColor(imageRGB, imageGray, CV_RGB2GRAY);
+            vector<cv::KeyPoint> keypoints;
+            cv::Mat ORBDescriptors;
+            extractor(imageGray, cv::Mat(), keypoints, ORBDescriptors);
+           
+           vector<cv::Mat >  desciptorVector ;
+            
+            for (int i = 0; i < ORBDescriptors.rows; i++) 
+            {
+
+                desciptorVector.push_back(ORBDescriptors.row(i));
+               
+            }
+            return desciptorVector;
+    
+}
 // ----------------------------------------------------------------------------
 int main(int argc, const char**  argv)
 {
@@ -67,7 +87,53 @@ int main(int argc, const char**  argv)
         vocName = string(argv[3]); 
     }
              
-// = = =
+
+    //work  for pic file list
+    
+    if (strcmp("-imglst", argv[1]) == 0 )
+    {
+        vector<string> imageFileNames;
+        string imgLstFile;
+         if ( !argv[2] )  // todo: need to add checking conditions that argv[2] contains invalid filename
+        {
+            cout << "Invalid ImageList File" << endl;
+          }
+         else
+        { 
+            imgLstFile = string(argv[2]); 
+        }
+       
+        LoadImages(imgLstFile, imageFileNames);
+
+        nImages = imageFileNames.size();
+
+
+        // initialze ORBextractor
+        int nLevels = 6;
+        //ORBextractor* extractor = new ORBextractor(1000,1.2,nLevels,1,20); //keep the same as in ORBSLAM2 code
+        ORBextractor extractor(1000,1.2,nLevels,1,20); //keep the same as in ORBSLAM2 code
+      
+        featuresVector.reserve(nImages);
+
+       
+        cv::Mat imageGray;
+        cv::Mat imageRGB;
+
+        
+//Extract features from each image from list and organize the features to vector <vector> format
+      for(auto &imageit : imageFileNames)
+      {
+ 
+            featuresVector.push_back(getDescriptorVectorForImg(imageit, extractor));
+              cout << "... Extract ORB for "<<imageit << endl;
+      }
+    
+
+        cout << "... Extraction done!" << endl;
+    }
+    else 
+    {
+        // = = =
 // load bag file
 //=========================================
 //todo: support bagfile in future
@@ -106,66 +172,6 @@ int main(int argc, const char**  argv)
         cout << "... Extraction done!" << endl;
     }
     ----------------------------------------------------------------------------------------------------------------------*/
-    //work  for pic file list
-    
-    if (strcmp("-imglst", argv[1]) == 0 )
-    {
-        vector<string> imageFileNames;
-        string imgLstFile;
-         if ( !argv[2] )  // todo: need to add checking conditions that argv[2] contains invalid filename
-        {
-            cout << "Invalid ImageList File" << endl;
-          }
-         else
-        { 
-            imgLstFile = string(argv[2]); 
-        }
-       
-        LoadImages(imgLstFile, imageFileNames);
-
-        nImages = imageFileNames.size();
-
-
-        // initialze ORBextractor
-        int nLevels = 6;
-        ORBextractor* extractor = new ORBextractor(1000,1.2,nLevels,1,20); //keep the same as in ORBSLAM2 code
-
-      
-        featuresVector.reserve(nImages);
-
-       
-        cv::Mat imageGray;
-        cv::Mat imageRGB;
-
-        
-//Extract features from each image from list and organize the features to vector <vector> format
-      for(auto &imageit : imageFileNames)
-      {
-           
-            imageRGB = cv::imread(imageit) ;
-            cv::cvtColor(imageRGB, imageGray, CV_RGB2GRAY);
-            vector<cv::KeyPoint> keypoints;
-            cv::Mat descriptorORB;
-// extract
-            (*extractor)(imageGray, cv::Mat(), keypoints, descriptorORB);
-           
-           vector<cv::Mat >  featuresPerImg  ;
-            
-            for (int i = 0; i < descriptorORB.rows; i++) 
-            {
-
-                featuresPerImg.push_back(descriptorORB.row(i));
-               
-            }
-             featuresVector.push_back(featuresPerImg);
-              cout << "... Extract ORB for "<<imageit << endl;
-      }
-    
-
-        cout << "... Extraction done!" << endl;
-    }
-    else 
-    {
         
     }
     // Creating the Vocabulary
@@ -259,3 +265,4 @@ void Initialize(string strSettingsFile)
             fSettings["ORBExtractor.scaleLevels"] >> scoringType;
 }
 ************************************************************/
+
