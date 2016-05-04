@@ -73,9 +73,14 @@ Viewer.ViewpointF: 500
 #--------------------------------------------------------------------------------------------
 ReConstruction.KN: 7
 ReConstruction.sigmaI: 20.0
-ReConstruction.lambdaG: 40.0
+ReConstruction.lambdaG: 80.0
 ReConstruction.lambdaL: 80.0
 ReConstruction.lambdaThe: 45.0
 ReConstruction.lambdaN: 2
 ReConstruction.theta: 0.23
+ReConstruction.disabled: 1
+
+ReConstruction.maxDepth: 3.0
+ReConstruction.minDepth: 1.5
+ReConstruction.searchOffset: 2.0
 

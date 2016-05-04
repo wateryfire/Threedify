@@ -34,6 +34,11 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     // camera params
     width = fSettings["Camera.width"];
     height = fSettings["Camera.height"];
+
+    //DEBUG
+    depthThresholdMax = fSettings["ReConstruction.maxDepth"];
+    depthThresholdMin = fSettings["ReConstruction.minDepth"];
+    epipolarSearchOffset = fSettings["ReConstruction.searchOffset"];
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -169,7 +174,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             int octave;
 //if(!pKF->IsInImage(col,row))continue;
             float depth = depths.at<float>(Point(col, row));
-            if(depth<=0 /*|| depth>8*/)
+            if(depth<=depthThresholdMin || depth > depthThresholdMax)
             {
                 continue;
             }
@@ -525,7 +530,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float minV = 0, maxV = 0;
 //        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
-        float offset = 1.0, dx, dy;
+        float offset = epipolarSearchOffset, dx, dy;
         //////
         ///
 //        minV = lowerBoundYInKF2;

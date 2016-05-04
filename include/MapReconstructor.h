@@ -194,6 +194,11 @@ public:
     // noise relation factor
     float theta = 0.23;
 
+    // additional params (DEBUG)
+    float depthThresholdMax;
+    float depthThresholdMin;
+    float epipolarSearchOffset;
+
     // key points for epipolar search
     map<long, map<cv::Point2f,RcKeyPoint,Point2fLess> > keyframeKeyPointsMap;
 
