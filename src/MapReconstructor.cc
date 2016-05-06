@@ -764,7 +764,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
 
         cv::Mat P3Dc1 = (cv::Mat_<float>(3,1) <<XcEst, YcEst, ZcBound[1]);
         cv::Mat P3Dw1=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc1+KF1Twc.rowRange(0,3).col(3);
-        valid = pKF2->ProjectStereo(P3Dw0, u1, v1);
+        valid = pKF2->ProjectStereo(P3Dw1, u1, v1);
         if (!valid)
             return false;
         
