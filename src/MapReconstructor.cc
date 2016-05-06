@@ -169,15 +169,18 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
                 continue;
             }
 
-            // 2. estimate octave
-            // judge which interval of one point on edge belongs to, give an approximate estimation of octave
-            int octave;
-//if(!pKF->IsInImage(col,row))continue;
+            if(!pKF->IsInImage(col,row))continue;
+
             float depth = depths.at<float>(Point(col, row));
             if(depth<=depthThresholdMin || depth > depthThresholdMax)
             {
                 continue;
             }
+
+            // 2. estimate octave
+            // judge which interval of one point on edge belongs to, give an approximate estimation of octave
+
+            int octave;
             for(iter = octaveDepthMap.end(); iter != octaveDepthMap.begin(); iter--)
             {
                 octave = iter->first;
@@ -190,13 +193,22 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             float intensity = image.at<float>(Point(col, row));
             Point2f cord = Point2f(col, row);
             RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,octave,depth);
+
+            // fill neighbour info
             hgkp.fetchNeighbours(image, gradient);
-//            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
-//                vector<float> msg;
-//                msg.push_back(image.at<float>(ptn));
-//                msg.push_back(gradient.at<float>(ptn));
-//                hgkp.neighbours.push_back(msg);
-//            });
+
+            // undistort
+//            cv::Mat mat(1,2,CV_32F);
+//            mat.at<float>(0,0)=hgkp.pt.x;
+//            mat.at<float>(0,1)=hgkp.pt.y;
+
+//            mat=mat.reshape(2);
+//            cv::undistortPoints(mat,mat,pKF->mK,mDistCoef,cv::Mat(), pKF->mK);
+//            mat=mat.reshape(1);
+
+//            hgkp.pt.x=mat.at<float>(0,0);
+//            hgkp.pt.y=mat.at<float>(0,1);
+
             keyPoints[cord] = hgkp;
         }
     }
@@ -1317,9 +1329,11 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         const float zh = 1.0/kp1.tho;
         float error = fabs(kp1.mDepth-zh);
         if(zh>0) {
-            if(error < 0.03/* * kp1.mDepth*/ /*&& error<0.1 * kp1.mDepth*/){
-                kp1.mDepth = zh;
+            if(error >= 0.03 * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
+//                kp1.mDepth = zh;
+                return;
             }
+            kp1.mDepth = zh;
         }
         if(zh > 8) return;
 
