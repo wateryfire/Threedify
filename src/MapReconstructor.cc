@@ -467,16 +467,20 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // get rotation (j - i) and
     cv::Mat R1w = pKF1->GetRotation();
     cv::Mat t1w = pKF1->GetTranslation();
+    cv::Mat Rwc1 = R1w.t();
     cv::Mat R2w = pKF2->GetRotation();
     cv::Mat t2w = pKF2->GetTranslation();
+    cv::Mat Rwc2 = R2w.t();
 
     cv::Mat R21 = R2w*R1w.t();
     cv::Mat t21 = -R2w*R1w.t()*t1w+t2w;
 
     cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
     cv::Mat rjix = (cv::Mat_<float>(1,3) << R21.at<float>(0,0), R21.at<float>(0,1), R21.at<float>(0,2));
+    cv::Mat rjiy = (cv::Mat_<float>(1,3) << R21.at<float>(1,0), R21.at<float>(1,1), R21.at<float>(1,2));
     float tjiz = t21.at<float>(2);
     float tjix = t21.at<float>(0);
+    float tjiy = t21.at<float>(1);
 
     // high gradient area points
     const long mnid1 = pKF1->mnId, mnid2 = pKF2->mnId;
@@ -511,6 +515,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
         const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
+        const float signa = (a<0 ?  -1.0 : 1.0);
+        const float signb = (b<0 ?  -1.0 : 1.0);
 
         if(a==0&&b==0)
         {
@@ -522,22 +528,42 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
 //        cv::Mat xp1 = pKF1->mK.inv() * xp;
 
-        ////////////////////////
-        /// fix the search area nearby the projection
-        tho0 = 1/kp1.mDepth;
-        ////////////////////////
+////////////////////////
+        if(kp1.mDepth>0){
+            tho0 = 1.0/kp1.mDepth;
+        }
+////////////////////////
+        float thoMax = tho0 + 2.0*sigma0, thoMin = tho0 - 2.0*sigma0;
+        float u0, u1, v0, v1, up, vp;
 
-        float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
-        float u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
-        float u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
+        u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
+        u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
+        v0 = pKF1->cy + (rjiy.dot(xp1) + thoMax * tjiy) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fy;
+        v1 = pKF1->cy + (rjiy.dot(xp1) + thoMin * tjiy) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fy;
 
-//        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
+        up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
+        vp = pKF1->cy + (rjiy.dot(xp1) + tho0 * tjiy) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fy;
+
+        //////
+        /// \brief unproject
+        ///
+//        Mat lower3Dw = pKF1->UnprojectStereo(kp1.pt.x , kp1.pt.y, 1.0/thoMax);
+//        Mat upper3Dw = pKF1->UnprojectStereo(kp1.pt.x , kp1.pt.y, 1.0/thoMin);
+//        bool proj1 = pKF2->ProjectStereo(lower3Dw, u0, v0);
+//        bool proj2 = pKF2->ProjectStereo(upper3Dw,u1, v1);
+
+//        if(!proj1 || !proj2){
+//            continue;
+//        }
+//        cout<<" ini proj u0: "<<u0<<"u1: "<<u1<<"v0: "<<v0<<"v1: "<<v1<<endl;
+
+        //float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
 
         ////////////////////////
         /// \brief minU
         ///
-//        float lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2,offsetUU,offsetVV;
-//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2, offsetUU,offsetVV);
+//        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
+//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
 //        lowerBoundXInKF2 /=2;
 //        lowerBoundYInKF2/=2;
 //        upperBoundXInKF2 /=2;
@@ -551,8 +577,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        if(fabs(u0 - u1) < 0.1) continue;
 
         float minU = min(u0, u1), maxU = max(u0, u1);
-        float minV = 0, maxV = 0;
-//        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
+        float minV = min(v0, v1), maxV = max(v0, v1);
 
         float offset = epipolarSearchOffset, dx, dy;
         //////
@@ -563,37 +588,28 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        b=0;
         ///
         //////
-        float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
-        float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
-//        float offsetU = offsetUU;
-//        float offsetV = offsetVV;
 
-        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*(offset + 0.5f))));
+        float dOffsetU = signa * sqrt(a * a / (a*a + b*b));
+        float dOffsetV = signb * sqrt(b * b / (a*a + b*b));
 
         Point2f startCord;
         Point2f endCord;
-        if(parralexWithYAxis)
-        {
-            minV = 0;
-            maxV = height;
-            //////
-            ///
-//            minV = lowerBoundYInKF2;
-//            maxV = upperBoundYInKF2;
-            ///
-            //////
-            startCord.x = minU;
-            startCord.y = minV;
-            dx = 1.0;
-            dy = 0;
-        }
-        else
+        bool majorDirX = (fabs(a) < fabs(b));
+        if(majorDirX)
         {
             startCord.x = minU;
             startCord.y = -(c + a * minU) / b;
             minV = maxV = startCord.y;
             dx = 1.0;
             dy = -a / b;
+        }
+        else
+        {
+            startCord.y = minV;
+            startCord.x = -(c + b * minV) / a;
+            minU = maxU = startCord.x;
+            dx = -b / a;
+            dy = 1.0;
         }
 //        cout<<"init p "<<startCord<<endl;
 
@@ -610,44 +626,95 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
                 minU = max(startCord.x, minU);
                 maxU = min(maxU, endCord.x);
-                if(!parralexWithYAxis)
+                minV = max(min(startCord.y,endCord.y), minV);
+                maxV = min(maxV, max(startCord.y,endCord.y));
+
+                if(majorDirX)
                 {
-                    minV = -(c + a * minU) / b;
-                    maxV = -(c + a * minU) / b;
+                    minV = maxV = -(c + a * minU) / b;
+                }
+                else
+                {
+                    minU = maxU = -(c + b * minV) / a;
                 }
             }
         }
 
-        minU -= offsetU;
-        maxU += offsetU;
-        minV -= offsetV;
-        maxV += offsetV;
+//        minU -= offsetU;
+//        maxU += offsetU;
+//        minV -= offsetV;
+//        maxV += offsetV;
         startCord.x = minU;
         startCord.y = minV;
 
 //        cout<<"start "<<startCord<<endl;
+//                cout<<"a: "<<a<<" b: "<<b<<" c: "<<c<<endl;
 //        cout<<"minU "<<minU<<endl;
 //        cout<<"maxU "<<maxU<<endl;
 //        cout<<"maxV "<<maxV<<endl;
 //        cout<<"minV "<<minV<<endl;
 //        cout<<"offsetU "<<offsetU<<endl;
 //        cout<<"offsetV "<<offsetV<<endl;
-//        cout<<"dx "<<dx<<endl;
-//        cout<<"dy "<<dy<<endl;
-//        cout<<"u0 "<<u0<<endl;
-//        cout<<"u1 "<<u1<<endl;
-//        cout<<"up "<<up<<endl;
+//        cout<<"dx "<<dx<<"dy "<<dy<<endl;
+//        cout<<"startCord.x < (maxU + 1.0) "<<(startCord.x < (maxU + 1.0))<<endl;
+//        cout<<"dmax: "<<dmax<<" dmin: "<<dmin<<" sigma0: "<<sigma0<<endl;
+//        cout<<"u0: "<<u0<<" u1: "<<u1<<" v0: "<<v0<<" v1: "<<v1<<endl;
+//        cout<<"tho0: "<<tho0<<" thomax: "<<thoMax<<" thomin: "<<thoMin<<endl;
+//        cout<<"u0 "<<u0<<" v0 "<<v0<<" up "<<up<<" vp "<<vp<<" u1 "<<u1<<" v1 "<<v1<<endl;
 
         Point2f cordP;
-        while(startCord.x < (maxU + 1.0))
+        while((majorDirX && (startCord.x < (maxU + 2.0))) || (!majorDirX && (startCord.y < (maxV + 2.0))))
+//        while(abs(x -maxU) < 1.0 && ( abs(y -maxV) < 1))
         {
             float x = startCord.x, y = startCord.y;
+            float ofMaxU, ofMaxV;
+            float offsetX, offsetY, ratio=1.0f;
+
+            // calc edge and start point for inner iteration
+//            float dru, drv;
+//            if((b*(x - up) -a*(y - vp)) < 0.0)
+//            {
+//                dru = u0;
+//                drv = v0;
+//            }
+//            else
+//            {
+//                dru = u1;
+//                drv = v1;
+//            }
+//            ratio = sqrt(((x - dru)*(x - dru) + (y - drv)*(y - drv))/((up - dru)*(up - dru) + (vp - drv)*(vp - drv)));
+//            if(ratio>1.0)
+//            {
+//                startCord.x += dx;
+//                startCord.y += dy;
+//                continue;
+//            }
+
+            offsetX = offset * dOffsetU * ratio;
+            offsetY = offset * dOffsetV * ratio;
+//            cout<<"(b*(x - up) -a*(y - vp))  " <<(b*(x - up) -a*(y - vp)) <<endl;
+//                cout<<"x "<<x<<" y "<<y<<endl;
+//                cout<<"ratio "<<ratio<<" signa "<<signa<<" signb "<<signb<<" signa "<<signa<<endl;
+//                cout<<"offsetY "<<offsetY<<" offsetX "<<offsetX<<endl;
+
+            x -= offsetX;
+            y -= offsetY;
+            float signofx = (offsetX<0?-1.0:1.0);
+            float signofy = (offsetY<0?-1.0:1.0);
+            ofMaxU = x + 2 * offsetX + signofx;
+            ofMaxV = y + 2 * offsetY + signofy;
+//            cout<<"md : x "<<x<<" y "<<y<<endl;
+//            cout<<"ofMaxU "<<ofMaxU<<" ofMaxV "<<ofMaxV<<endl;
+
 //            cout<< "stx "<<startCord<<endl;
-            while(y<(maxV + 1.0))
+//            while((majorDirX && (y < (maxV + 1.0))) || (!majorDirX && (x < (maxU + 1.0))))
+            while(( abs(y -ofMaxV) > 1) && abs(x -ofMaxU) > 1)
             {
-               cordP.x = floor(x);
-               cordP.y= floor(y);
-               cout<< "stP "<<cordP<<endl;
+//               cordP.x = floor(x);
+//               cordP.y= floor(y);
+                               cordP.x = round(x);
+                               cordP.y= round(y);
+//               cout<< "stP "<<cordP<<endl;
                 if(keyPoints2.count(cordP))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
@@ -663,15 +730,12 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                     //}
                 }
 
-                y += 1.0;
+                x += dOffsetU;
+                y += dOffsetV;
             }
 
             startCord.x += dx;
             startCord.y += dy;
-            if(!parralexWithYAxis)
-            {
-                maxV += dy;
-            }
         }
 
         // use the best match point to estimate the distribution
@@ -714,7 +778,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
-                errorSquare = max(2.0f, errorSquare);
+                errorSquare = max(2.0f * sigmaI * sigmaI, errorSquare);
             }
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
@@ -1001,9 +1065,9 @@ eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
         }else if(angleDiff > 360){
             angleDiff -= 360.0;
         }*/
-angleDiff = fabs(angleDiff);
+//angleDiff = fabs(angleDiff);
 
-    /*while(angleDiff <0 || angleDiff > 90)
+    while(angleDiff <0 || angleDiff > 90)
     {
         if(angleDiff < 0){
             angleDiff += 360.0;
@@ -1017,7 +1081,7 @@ angleDiff = fabs(angleDiff);
                 angleDiff=180.0 - angleDiff;
             }
         }
-    }*/
+    }
 
     if(angleDiff >= lambdaThe){
         return similarityError;
@@ -1279,7 +1343,7 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
             {
                 // check index
                 sort(matchedIndexes.begin(), matchedIndexes.end());
-                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 4) continue;
+                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 3) continue;
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sigma;
