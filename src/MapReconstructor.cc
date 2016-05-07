@@ -737,7 +737,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 }
 
 
-bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2, int& upperBoundXInKF2, int& upperBoundYInKF2 )
+bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV )
 {
     //Uproject lower and upper point from KF1 to world
      //Uproject lower and upper point from KF1 to world
@@ -748,7 +748,9 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
      cv::Mat upper3Dw = cv::Mat();
       cv::Mat KF1Twc = cv::Mat();
      vector<cv::Mat>  boundPoints;
-     boundPoints.reserve(8);  //todo: to configurable, considering the deviation in (R,t), in depth so it has 3d distribution cubic.
+     boundPoints.reserve(4);  //todo: to configurable, considering the deviation in (R,t), in depth so it has 3d distribution cubic.
+    float uTho, vTho;  //Point cord after project to KF2
+  
     if(z>1 && z<8)  //todo: to configurable, depth <= 1m is not good for RGBD sensor, depth >=8 m cause the depth distribution not sensitive.
     {
 
@@ -762,6 +764,24 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
        
         float XcEst = P3DcEst.at<float>(0);
         float YcEst = P3DcEst.at<float>(1);
+ 
+
+        
+        cv::Mat P3Dc0 = (cv::Mat_<float>(3,1) <<XcEst, YcEst, ZcBound[0]);
+        cv::Mat P3Dw0=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc0+KF1Twc.rowRange(0,3).col(3);
+        bool valid = pKF2->ProjectStereo(P3Dw0, u0, v0);
+        if (!valid)
+            return false;
+
+        cv::Mat P3Dc1 = (cv::Mat_<float>(3,1) <<XcEst, YcEst, ZcBound[1]);
+        cv::Mat P3Dw1=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc1+KF1Twc.rowRange(0,3).col(3);
+        valid = pKF2->ProjectStereo(P3Dw1, u1, v1);
+        if (!valid)
+            return false;
+        
+        uTho = (u0+u1)/2;
+        vTho =(v0+v1)/2;
+     
 //        cout <<"Xc estimation: "<< XcEst << " Yc estimation:"<<YcEst << "  Zc estimation"<< z<<endl;
         float XcBound[]= {XcEst-xDelta, XcEst+xDelta};
         float YcBound[]= { YcEst-yDelta,  YcEst+yDelta};
@@ -779,12 +799,7 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
            cv::Mat P3Dw=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc+KF1Twc.rowRange(0,3).col(3);
             boundPoints.push_back( P3Dw);
        }
-       for ( int zindex = 0; zindex < 2; zindex ++)
-       {
-                cv::Mat P3Dc = (cv::Mat_<float>(3,1) <<XcEst, YcEst, ZcBound[zindex]);
-                cv::Mat P3Dw=KF1Twc.rowRange(0,3).colRange(0,3)*P3Dc+KF1Twc.rowRange(0,3).col(3);
-                boundPoints.push_back( P3Dw);
-       }
+
          
 
     }
@@ -793,49 +808,36 @@ bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     
     //Project to  Neighbor KeyFrames
     
-    float upperU = 0.0;
-    float upperV =0.0;
-    float lowerU = 0.0;
-    float lowerV = 0.0;
+    float maxOffsetU = 0.0;
+    float maxOffsetV =0.0;
+    float tempOffsetU = 0.0;
+    float tempOffsetV = 0.0;
     float tempU = 0.0;
     float tempV = 0.0;
-    bool valid = false;
-   bool firstround = true;
+
     
     //currently only roughly search the area to ensure all deviation are covered in the search area.
 //    cout <<"bound points"<<endl;
     for(auto & bp: boundPoints)
     {
-         valid = pKF2->ProjectStereo(bp, tempU, tempV);
+         bool valid = pKF2->ProjectStereo(bp, tempU, tempV);
          if(!valid) 
                 return false;
-        
+         tempOffsetU = fabs(tempU-uTho);
+         tempOffsetV = fabs(tempV-vTho);
 //         cout << tempU<< "  " <<       tempV << endl;
-         if(firstround)
-         {
-             firstround = false;
-             upperU = lowerU = tempU;
-             upperV = lowerV = tempV;
-             continue;
-         }
-        if ( tempU > upperU)
-            upperU = tempU;
+
+        if (  tempOffsetU > maxOffsetU )
+            maxOffsetU =tempOffsetU;
         
-        if (tempU < lowerU)
-            lowerU = tempU;
+      if (  tempOffsetV> maxOffsetV )
+            maxOffsetV =tempOffsetV;
             
-        if(tempV > upperV)
-            upperV = tempV;
-            
-        if(tempV< lowerV)
-            lowerV = tempV;
     }
 
 
-lowerBoundXInKF2 = floor(lowerU);
-lowerBoundYInKF2 = floor(lowerV);
-upperBoundXInKF2 = ceil(upperU);
-upperBoundYInKF2 = ceil(upperV);
+    offsetU = maxOffsetU;
+    offsetV = maxOffsetV;
    
     return true;
     

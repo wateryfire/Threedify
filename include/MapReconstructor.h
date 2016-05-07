@@ -227,8 +227,7 @@ public:
     void addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
     void interKeyFrameChecking(KeyFrame* pKF);
     
-    bool getSearchAreaForWorld3DPointInKF (  KeyFrame * const pCurrentKF,  KeyFrame* const pNeighborKF, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2,int& upperBoundXInKF2, int& upperBoundYInKF2 );
-
+    bool  getSearchAreaForWorld3DPointInKF( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV );
 private:
 
 	//Extract and store the edge profile info for a key frame
