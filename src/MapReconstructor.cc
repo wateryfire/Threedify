@@ -12,7 +12,7 @@ using namespace std;
 
 namespace ORB_SLAM2
 {
-
+float errorTolerenceFactor;
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
 		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
@@ -39,6 +39,7 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     depthThresholdMax = fSettings["ReConstruction.maxDepth"];
     depthThresholdMin = fSettings["ReConstruction.minDepth"];
     epipolarSearchOffset = fSettings["ReConstruction.searchOffset"];
+    errorTolerenceFactor = fSettings["ReConstruction.errorTolerenceFactor"];
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -126,7 +127,7 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-//    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
 }
@@ -490,7 +491,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // inverse depth of sense
     float tho0, sigma0;
     calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
-    //sigma0 /= 2; //DEBUG
+//    sigma0 /= 2; //DEBUG
     cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
     // search for each point in first image
@@ -523,7 +524,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         ////////////////////////
         /// fix the search area nearby the projection
-        //tho0 = 1/kp1.mDepth;
+        tho0 = 1/kp1.mDepth;
         ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -535,8 +536,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         ////////////////////////
         /// \brief minU
         ///
-//        int lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2;
-//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2 );
+//        float lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2,offsetUU,offsetVV;
+//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2, offsetUU,offsetVV);
 //        lowerBoundXInKF2 /=2;
 //        lowerBoundYInKF2/=2;
 //        upperBoundXInKF2 /=2;
@@ -564,8 +565,10 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         //////
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
         float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
+//        float offsetU = offsetUU;
+//        float offsetV = offsetVV;
 
-        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*(offset + 0.5f)));
+        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*(offset + 0.5f))));
 
         Point2f startCord;
         Point2f endCord;
@@ -644,7 +647,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
                cordP.x = floor(x);
                cordP.y= floor(y);
-//               cout<< "stP "<<cordP<<endl;
+               cout<< "stP "<<cordP<<endl;
                 if(keyPoints2.count(cordP))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
@@ -1474,16 +1477,16 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
     if(kp1.fused){
 
         const float zh = 1.0/kp1.tho;
-//        float error = fabs(kp1.mDepth-zh);
-//        if(zh>0) {
-//            if(error <= 0.03 * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
-////                kp1.mDepth = zh;
-//                return;
-//            }
-//            kp1.mDepth = zh;
-//        }
+        float error = fabs(kp1.mDepth-zh);
+        if(zh>0) {
+            if(error >= errorTolerenceFactor * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
+//                kp1.mDepth = zh;
+                return;
+            }
+            kp1.mDepth = zh;
+        }
 
-        kp1.mDepth = zh;
+//        kp1.mDepth = zh;
         if(zh > 8) return;
 
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
