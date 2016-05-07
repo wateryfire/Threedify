@@ -225,6 +225,7 @@ public:
     int KaTestFuse(std::vector<std::pair<float, float>> &hypos, float &tho, float &sigma, set<int> &nearest);
     void intraKeyFrameChecking(KeyFrame* pKF);
     void addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
+    void interKeyFrameChecking(KeyFrame* pKF);
     
     bool getSearchAreaForWorld3DPointInKF (  KeyFrame * const pCurrentKF,  KeyFrame* const pNeighborKF, const RcKeyPoint& twoDPoint,int& lowerBoundXInKF2, int& lowerBoundYInKF2,int& upperBoundXInKF2, int& upperBoundYInKF2 );
 

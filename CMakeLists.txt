@@ -102,11 +102,11 @@ add_executable(bin_vocabulary
 tools/bin_vocabulary.cc)
 target_link_libraries(bin_vocabulary ${PROJECT_NAME})
 
-include_directories(include ${catkin_INCLUDE_DIRS})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/utils)
-add_executable(CreateORBVoc
-utils/CreateORBVoc.cc
-src/ORBextractor.cc)
-target_link_libraries(CreateORBVoc 
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
-)
+#include_directories(include ${catkin_INCLUDE_DIRS})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/utils)
+#add_executable(CreateORBVoc
+#utils/CreateORBVoc.cc
+#src/ORBextractor.cc)
+#target_link_libraries(CreateORBVoc
+#${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
+#)

@@ -278,6 +278,9 @@ void MapReconstructor::RunToReconstructMap()
 {
     realTimeReconstructionEnd = false;
 
+    std::deque<KeyFrame*> interKeyFrameCheckingStack;
+    KeyFrame* currentKeyFrameInterChecking=NULL;
+
     KeyFrame* currentKeyFrame=NULL;
 
 	while(mStatus_RealTimeMapReconstruction!=STARTED)
@@ -307,6 +310,7 @@ void MapReconstructor::RunToReconstructMap()
             {
                 unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
                 mlpKFQueueForReonstruction.pop_front();
+                interKeyFrameCheckingStack.push_back(currentKeyFrame);
             }
             retryCount=0;
         }
@@ -340,6 +344,13 @@ void MapReconstructor::RunToReconstructMap()
 //                    mlpKFQueueForReonstruction.pop_front();
 //                }
 //            }
+        }
+
+        if((int)interKeyFrameCheckingStack.size() > kN)
+        {
+            currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
+            interKeyFrameChecking(currentKeyFrameInterChecking);
+            interKeyFrameCheckingStack.pop_front();
         }
     }
 
@@ -479,7 +490,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // inverse depth of sense
     float tho0, sigma0;
     calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
-    sigma0 /= 2; //DEBUG
+    //sigma0 /= 2; //DEBUG
     cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
 
     // search for each point in first image
@@ -512,7 +523,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         ////////////////////////
         /// fix the search area nearby the projection
-        tho0 = 1/kp1.mDepth;
+        //tho0 = 1/kp1.mDepth;
         ////////////////////////
 
         float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
@@ -554,7 +565,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
         float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
 
-        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
+        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*(offset + 0.5f)));
 
         Point2f startCord;
         Point2f endCord;
@@ -700,7 +711,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
-                errorSquare = max((float)1.0e-3, errorSquare);
+                errorSquare = max(2.0f, errorSquare);
             }
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
@@ -1185,7 +1196,7 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
         vector<pair<float, float>> &hypos = kp1.hypotheses;
 
         // DEBUG
-        hypos.push_back(make_pair(1/kp1.mDepth, kp1.mDepth * 1000.0 * 0.01));
+//        hypos.push_back(make_pair(1/kp1.mDepth, kp1.mDepth * 0.01));
 
         set<int> nearest;
         int totalCompact = KaTestFuse(hypos, kp1.tho, kp1.sigma, nearest);
@@ -1269,9 +1280,7 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
                 kp1.sigma = sigma;
             }
 
-            kp1.intraCheckCount ++;
-
-            addKeyPointToMap(kp1, pKF);
+            kp1.intraCheckCount = totalCompact;
 //            kp1.addHypo(tho, sigma, 0);
         }
     }
@@ -1322,19 +1331,157 @@ int MapReconstructor::KaTestFuse(vector<pair<float, float>> &hypos, float &tho, 
     return fusedCount;
 }
 
+
+void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
+{
+    cout<<"interKeyFrameChecking" <<endl;
+    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF->mnId);
+    vector<KeyFrame*> vpNeighKFs = pKF->GetBestCovisibilityKeyFrames(kN);
+
+    cv::Mat R1w = pKF->GetRotation();
+    cv::Mat t1w = pKF->GetTranslation();
+
+    vector<RcKeyPoint> validPoints;
+
+    // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquare
+    map<Point2f,vector<vector<float> > ,Point2fLess> depthErrorEstimateFactors;
+    map<Point2f,set<KeyFrame*>,Point2fLess> depthErrorKeyframes;
+
+    for(size_t i=0; i<vpNeighKFs.size(); i++)
+    {
+        KeyFrame* pKF2 = vpNeighKFs[i];
+
+        long mnid2 = pKF2->mnId;
+        if(!keyframeKeyPointsMap.count(mnid2)){
+            cout << "keyframe hypo data not exist: " << mnid2 << endl;
+            continue;
+        }
+
+        cv::Mat R2w = pKF2->GetRotation();
+        cv::Mat t2w = pKF2->GetTranslation();
+
+        cv::Mat R21 = R2w*R1w.t();
+        cv::Mat t21 = -R2w*R1w.t()*t1w+t2w;
+
+        cv::Mat KR = pKF2->mK * R21;
+        cv::Mat Kt = pKF2->mK * t21;
+        cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
+        float tjiz = t21.at<float>(2);
+
+        map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+
+        for(auto &kpit : keyPoints1)
+        {
+            RcKeyPoint &kp1 = kpit.second;
+            vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
+            set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
+
+            if(!kp1.fused /*|| !kp1.intraCheckCount*/)
+            {
+                continue;
+            }
+
+            float tho1 = kp1.tho;
+
+            // Xba(p) = K.inv() * xp
+            cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF->cx)*pKF->invfx, (kp1.pt.y-pKF->cy)*pKF->invfy, 1.0);
+//            cout<<"xp1 "<<xp1<<endl;
+            float invTho = 1.0/tho1;
+            cv::Mat D = (Mat_<float>(3,3) << invTho,0,0,0, invTho,0,0,0, invTho);
+//            cout<<"D "<<D<<endl;
+            Mat KRD = KR*D;
+//            cout<<"KRD "<<KRD<<endl;
+
+            // project to neighbour keyframe
+            Mat xj = KRD*xp1.t() + Kt;
+            float tho2 = tho1 / (rjiz.dot(xp1) + tho1 * tjiz);
+//            cout<<"xj "<<xj<<endl;
+//            cout<<"tho2 "<<tho2<<endl;
+
+            // check neighbours
+            float uj = xj.at<float>(0) / xj.at<float>(2), vj = xj.at<float>(1) / xj.at<float>(2);
+            vector<Point2f> neighbours;
+            neighbours.push_back(Point2f(floor(uj), floor(vj)));
+            neighbours.push_back(Point2f(floor(uj), ceil(vj)));
+            neighbours.push_back(Point2f(ceil(uj), floor(vj)));
+            neighbours.push_back(Point2f(ceil(uj), ceil(vj)));
+            for (const Point2f &p: neighbours)
+            {
+                if(keyPoints2.count(p))
+                {
+                    RcKeyPoint &kp2 = keyPoints2.at(p);
+                    if(kp2.fused)
+                    {
+                        float tho2n = kp2.tho;
+                        float sigma2nSquare = kp2.sigma * kp2.sigma;
+
+                        // Ka test
+                        if((tho2 - tho2n) * (tho2 - tho2n) / sigma2nSquare < 3.84)
+                        {
+                            kp1.interCheckCount++;
+                            validPoints.push_back(kp1);
+
+                            // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquar
+                            vector<float> params;
+                            params.push_back(1.0f/tho2n);
+                            params.push_back(rjiz.dot(xp1));
+                            params.push_back(tjiz);
+                            params.push_back(sigma2nSquare);
+
+                            depthErrorEstimateFactor.push_back(params);
+                            depthErrorKeyframe.insert(pKF2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    int validIndex = 0;
+    auto estimate = [](vector<vector<float>> &params)
+    {
+        float sumu = 0.0f, suml = 0.0f;
+        for(vector<float> &param: params)
+        {
+            float djnSquare4 = param[0] * param[0] * param[0] * param[0];
+            sumu += param[1] * (param[0] - param[2]) / (djnSquare4 * param[3]);
+            suml += param[1] *  param[1]/ (djnSquare4 * param[3]);
+        }
+        return sumu/suml;
+    };
+//    bool b = glambda(3, 3.14); // ok
+    for(RcKeyPoint &vkp: validPoints)
+    {
+//        cout<<"vkp.interCheckCount "<<vkp.interCheckCount<<endl;
+        size_t count = depthErrorKeyframes.at(vkp.pt).size();
+        if(count > lambdaN)
+        {
+            vector<vector<float>> &params = depthErrorEstimateFactors.at(vkp.pt);
+            float dpstar = estimate(params);
+                    cout<<"create estimate "<<dpstar<<" former "<<1.0/vkp.tho<<endl;
+                    vkp.tho = 1.0f/dpstar;
+            addKeyPointToMap(vkp, pKF);
+        }
+        validIndex++;
+    }
+}
+
+
 void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
 {
     if(kp1.fused){
 
         const float zh = 1.0/kp1.tho;
-        float error = fabs(kp1.mDepth-zh);
-        if(zh>0) {
-            if(error >= 0.03 * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
-//                kp1.mDepth = zh;
-                return;
-            }
-            kp1.mDepth = zh;
-        }
+//        float error = fabs(kp1.mDepth-zh);
+//        if(zh>0) {
+//            if(error <= 0.03 * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
+////                kp1.mDepth = zh;
+//                return;
+//            }
+//            kp1.mDepth = zh;
+//        }
+
+        kp1.mDepth = zh;
         if(zh > 8) return;
 
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
