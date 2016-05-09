@@ -83,10 +83,10 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
 
         // Release or never release the images?
 
-        currentKeyFrame->mRefImgGray.refcount = 0;
-        currentKeyFrame->mRefImgGray.release();
-        currentKeyFrame->mRefImgDepth.refcount = 0;
-        currentKeyFrame->mRefImgDepth.release();
+//        currentKeyFrame->mRefImgGray.refcount = 0;
+//        currentKeyFrame->mRefImgGray.release();
+//        currentKeyFrame->mRefImgDepth.refcount = 0;
+//        currentKeyFrame->mRefImgDepth.release();
 
 		{
 			// Add to the second queue for the real-time map reconstruction
@@ -127,7 +127,7 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+//    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
 }
@@ -525,15 +525,17 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // Xba(p) = K.inv() * xp
         cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF1->cx)*pKF1->invfx, (kp1.pt.y-pKF1->cy)*pKF1->invfy, 1.0);
+        float sigmaEst = sigma0/4.0;
 //        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
 //        cv::Mat xp1 = pKF1->mK.inv() * xp;
 
 ////////////////////////
         if(kp1.mDepth>0){
             tho0 = 1.0/kp1.mDepth;
+//            sigmaEst *= 0.1 * kp1.mDepth;
         }
 ////////////////////////
-        float thoMax = tho0 + 2.0*sigma0, thoMin = tho0 - 2.0*sigma0;
+        float thoMax = tho0 + 2.0*sigmaEst, thoMin = tho0 - 2.0*sigmaEst;
         float u0, u1, v0, v1, up, vp;
 
         u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
@@ -779,6 +781,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
                 errorSquare = max(2.0f * sigmaI * sigmaI, errorSquare);
+//                continue;
             }
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
@@ -1065,23 +1068,23 @@ eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
         }else if(angleDiff > 360){
             angleDiff -= 360.0;
         }*/
-//angleDiff = fabs(angleDiff);
+angleDiff = fabs(angleDiff);
 
-    while(angleDiff <0 || angleDiff > 90)
-    {
-        if(angleDiff < 0){
-            angleDiff += 360.0;
-        }else if(angleDiff > 360){
-            angleDiff -= 360.0;
-        }
-        else{
-            if(angleDiff>180){
-                angleDiff-=180.0;
-            }else if(angleDiff>90){
-                angleDiff=180.0 - angleDiff;
-            }
-        }
-    }
+//    while(angleDiff <0 || angleDiff > 90)
+//    {
+//        if(angleDiff < 0){
+//            angleDiff += 360.0;
+//        }else if(angleDiff > 360){
+//            angleDiff -= 360.0;
+//        }
+//        else{
+//            if(angleDiff>180){
+//                angleDiff-=180.0;
+//            }else if(angleDiff>90){
+//                angleDiff=180.0 - angleDiff;
+//            }
+//        }
+//    }
 
     if(angleDiff >= lambdaThe){
         return similarityError;
@@ -1350,6 +1353,7 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
             }
 
             kp1.intraCheckCount = totalCompact;
+            addKeyPointToMap(kp1, pKF);
 //            kp1.addHypo(tho, sigma, 0);
         }
     }
@@ -1545,8 +1549,11 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         if(zh>0) {
             if(error >= errorTolerenceFactor * kp1.mDepth * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
 //                kp1.mDepth = zh;
+//                kp1.mDepth = (1/(errorTolerenceFactor * kp1.mDepth * kp1.mDepth * kp1.mDepth) + kp1.tho)/(1/(errorTolerenceFactor * kp1.mDepth * kp1.mDepth) + kp1.sigma * kp1.sigma);
                 return;
-            }
+            }/*else{
+                kp1.mDepth = zh;
+            }*/
             kp1.mDepth = zh;
         }
 
