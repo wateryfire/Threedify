@@ -82,4 +82,5 @@ ReConstruction.theta: 0.23
 ReConstruction.maxDepth: 8.0
 ReConstruction.minDepth: 1.0
 ReConstruction.searchOffset: 1.5
-ReConstruction.errorTolerenceFactor: 0.02 
+ReConstruction.errorTolerenceFactor: 0.01 
+ReConstruction.initVarienceFactor: 0.005

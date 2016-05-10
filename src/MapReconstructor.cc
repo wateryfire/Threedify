@@ -12,7 +12,7 @@ using namespace std;
 
 namespace ORB_SLAM2
 {
-float errorTolerenceFactor;
+float errorTolerenceFactor,initVarienceFactor;
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
 		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
@@ -35,11 +35,26 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     width = fSettings["Camera.width"];
     height = fSettings["Camera.height"];
 
+    //
+    cv::Mat DistCoef(4,1,CV_32F);
+    DistCoef.at<float>(0) = fSettings["Camera.k1"];
+    DistCoef.at<float>(1) = fSettings["Camera.k2"];
+    DistCoef.at<float>(2) = fSettings["Camera.p1"];
+    DistCoef.at<float>(3) = fSettings["Camera.p2"];
+    const float k3 = fSettings["Camera.k3"];
+    if(k3!=0)
+    {
+        DistCoef.resize(5);
+        DistCoef.at<float>(4) = k3;
+    }
+    DistCoef.copyTo(mDistCoef);
+
     //DEBUG
     depthThresholdMax = fSettings["ReConstruction.maxDepth"];
     depthThresholdMin = fSettings["ReConstruction.minDepth"];
     epipolarSearchOffset = fSettings["ReConstruction.searchOffset"];
     errorTolerenceFactor = fSettings["ReConstruction.errorTolerenceFactor"];
+    initVarienceFactor = fSettings["ReConstruction.initVarienceFactor"];
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -127,7 +142,7 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-//    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
 }
@@ -137,27 +152,6 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
     Mat depths = pKF->mRefImgDepth;
 
      map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
-
-    // map feature key points to octave, yield depth intervals for octave
-    map<int, pair<float, float> > octaveDepthMap;
-    getApproximateOctave(pKF, octaveDepthMap);
-    map<int, pair<float, float> >::iterator  iter;
-
-    ///////////////////////
-//    vector<float> ocv  = pKF->mvLevelSigma2;
-//    vector<float>::iterator oci;
-//    for(oci = ocv.begin(); oci != ocv.end(); oci++)
-//    {
-//        cout<< "octave sigma: " <<*oci<<endl;
-//    }
-
-
-//    for(iter = octaveDepthMap.begin(); iter != octaveDepthMap.end(); iter++)
-//    {
-//        cout<< "octave map: " <<iter->first <<" "<<iter->second.first<<" "<<iter->second.second<<endl;
-//    }
-
-    /////////////////////
 
     for(int row = 0; row < gradient.rows; ++row) {
         uchar* p = gradient.ptr<uchar>(row);
@@ -178,22 +172,10 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
                 continue;
             }
 
-            // 2. estimate octave
-            // judge which interval of one point on edge belongs to, give an approximate estimation of octave
-
-            int octave;
-            for(iter = octaveDepthMap.end(); iter != octaveDepthMap.begin(); iter--)
-            {
-                octave = iter->first;
-                if(depth > iter->second.first && depth<=iter->second.second){
-                    break;
-                }
-            }
-            //
             float angle = orientation.at<float>(Point(col, row));
             float intensity = image.at<float>(Point(col, row));
             Point2f cord = Point2f(col, row);
-            RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,octave,depth);
+            RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,0,depth);
 
             // fill neighbour info
             hgkp.fetchNeighbours(image, gradient);
@@ -207,72 +189,13 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 //            cv::undistortPoints(mat,mat,pKF->mK,mDistCoef,cv::Mat(), pKF->mK);
 //            mat=mat.reshape(1);
 
-//            hgkp.pt.x=mat.at<float>(0,0);
-//            hgkp.pt.y=mat.at<float>(0,1);
+//            hgkp.ptu.x=mat.at<float>(0,0);
+//            hgkp.ptu.y=mat.at<float>(0,1);
 
             keyPoints[cord] = hgkp;
         }
     }
     keyframeKeyPointsMap[pKF->mnId] = keyPoints;
-}
-
-void MapReconstructor::getApproximateOctave(KeyFrame *pKF,map<int,pair<float, float>> &octaveDepthMap){
-    vector<KeyPoint> keyPoints = pKF->mvKeysUn;
-    vector<float> depths = pKF->mvDepth;
-
-    int size = (int)keyPoints.size();
-    for(int i=0;i<size;i++){
-        KeyPoint p = keyPoints[i];
-        float depth = depths[i];
-
-        if(depth<0){continue;}
-
-        int octave = p.octave;
-
-        std::pair<float, float> interval;
-
-        float sup,sub;
-        if(octaveDepthMap.count(octave)<1){
-            interval = make_pair(NAN, NAN);
-            sub = NAN;
-            sup = NAN;
-        }
-        else{
-            interval = octaveDepthMap[octave];
-            sub = interval.first;
-            sup = interval.second;
-        }
-
-        if(isnan(sup) && isnan(sub)){
-            sup = sub = depth;
-        }
-        else{
-            if(depth<sup){
-                if(depth<sub){
-                    sub = depth;
-                }
-            }else{
-                sup = depth;
-            }
-        }
-        interval.first = sub;
-        interval.second = sup;
-
-        octaveDepthMap[octave] = interval;
-    }
-
-    /*map<int, std::pair<float, float> >::iterator  iter;
-    // grow invervals to cover the whole possitive axis
-    float upper = FLT_MAX,lower = NAN;
-    for(iter = octaveDepthMap.begin(); iter != octaveDepthMap.end(); iter++)
-    {
-        if(!isnan(lower)){
-            iter->second.first = lower;
-        }
-        lower = iter->second.second;
-    }
-    iter--;
-    iter->second.second = upper; // to possitive infinate*/
 }
 
 void MapReconstructor::RunToReconstructMap()
@@ -320,31 +243,16 @@ void MapReconstructor::RunToReconstructMap()
             retryCount ++;
             sleep(1);
             continue;
-//            sleep(3);
         }
 
-        if(frameValid) {
+        if(frameValid)
+        {
 
-//            processedKeyFrame = mlpKFQueueForReonstruction.;
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
 
             intraKeyFrameChecking(currentKeyFrame);
-
-
-
-//            {
-//                unique_lock<mutex> lock(mMutexForKFQueueForReonstruction);
-//                for(int i=0;i<2;i++)
-//                {
-//                    if(mlpKFQueueForReonstruction.empty())
-//                    {
-//                        break;
-//                    }
-//                    mlpKFQueueForReonstruction.pop_front();
-//                }
-//            }
         }
 
         if((int)interKeyFrameCheckingStack.size() > kN)
@@ -384,23 +292,18 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
     cout<<"CreateNewMapPoints"<<endl;
     // Retrieve neighbor keyframes in covisibility graph
     int nn = kN;
-//    if(mbMonocular)
-//        nn=2 * kN;
 
     const vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
 
     // Search matches with epipolar restriction and triangulate
     for(size_t i=0; i<vpNeighKFs.size(); i++)
     {
-//        if(i>0 && CheckNewKeyFrames())
-//            return;
 
         KeyFrame* pKF2 = vpNeighKFs[i];
 
         // Search matches that fullfil epipolar constraint
         vector<pair<size_t,size_t> > vMatchedIndices;
         long mnid2 = pKF2->mnId;
-        // while ? TODO
         if(!keyframeKeyPointsMap.count(mnid2)){
             cout << "keyframe data not extracted yet: " << mnid2 << endl;
             continue;
@@ -415,24 +318,8 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
 cv::Mat MapReconstructor::UnprojectStereo(RcKeyPoint &p,KeyFrame *pKF)
 {
     float z = p.mDepth;
-
-//    vector<pair<float,float>> hypos = p.hypotheses;
-//    float tho = 0;
-//    for(size_t i=0;i<hypos.size();i++){
-//        tho += hypos[i].first;
-//    }
-//    tho /= hypos.size();
-//    if(tho==0){
-//        return cv::Mat();
-//    }
-//        const float zh = 1.0/tho;
-//        cout<<"hypo zh "<<zh<<", measured "<<z<<endl;
-
-
     const float u = p.pt.x;
     const float v = p.pt.y;
-//    return pKF->UnprojectStereo(u,v,z);
-//    cout<<"new point , mDepth: " <<  p.mDepth<<", tho: "<<tho<<", invtho: "<<z<<endl;
     return pKF->UnprojectStereo(u,v,z);
 }
 
@@ -485,11 +372,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // high gradient area points
     const long mnid1 = pKF1->mnId, mnid2 = pKF2->mnId;
     cout<<"epipcolar constraient search between "<<mnid1<<" "<<mnid2<<endl;
-//    vMatchedIndices.clear();
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
 
-//    float medianRotation = calcInPlaneRotation(pKF1,pKF2);
     float medianRotation = calcMedianRotation(pKF1,pKF2);
 
     // inverse depth of sense
@@ -505,16 +390,27 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // prepare data
         float intensity1 = kp1.intensity;
-//        float angle1 = kp1.orientation;
         float gradient1 = kp1.gradient;
 
         float minSimilarityError = -1.0;
         Point2f matchedCord;
 
+        // undistort
+        cv::Mat mat(1,2,CV_32F);
+        mat.at<float>(0,0)=kp1.pt.x;
+        mat.at<float>(0,1)=kp1.pt.y;
+
+        mat=mat.reshape(2);
+        cv::undistortPoints(mat,mat,pKF1->mK,mDistCoef,cv::Mat(), pKF1->mK);
+        mat=mat.reshape(1);
+
+        float xudist=mat.at<float>(0,0);
+        float yudist=mat.at<float>(0,1);
+
         // epipolar line params
-        const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
-        const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
-        const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
+        const float a = xudist*F12.at<float>(0,0)+yudist*F12.at<float>(1,0)+F12.at<float>(2,0);
+        const float b = xudist*F12.at<float>(0,1)+yudist*F12.at<float>(1,1)+F12.at<float>(2,1);
+        const float c = xudist*F12.at<float>(0,2)+yudist*F12.at<float>(1,2)+F12.at<float>(2,2);
         const float signa = (a<0 ?  -1.0 : 1.0);
         const float signb = (b<0 ?  -1.0 : 1.0);
 
@@ -524,15 +420,14 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         }
 
         // Xba(p) = K.inv() * xp
-        cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF1->cx)*pKF1->invfx, (kp1.pt.y-pKF1->cy)*pKF1->invfy, 1.0);
-        float sigmaEst = sigma0/4.0;
-//        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
-//        cv::Mat xp1 = pKF1->mK.inv() * xp;
+        cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
+//        float sigmaEst = sigma0/4.0;
+        float sigmaEst = initVarienceFactor * (kp1.mDepth + 1.0);
 
 ////////////////////////
         if(kp1.mDepth>0){
             tho0 = 1.0/kp1.mDepth;
-//            sigmaEst *= 0.1 * kp1.mDepth;
+//            sigmaEst *= (kp1.mDepth + 1.0);
         }
 ////////////////////////
         float thoMax = tho0 + 2.0*sigmaEst, thoMin = tho0 - 2.0*sigmaEst;
@@ -545,21 +440,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
         vp = pKF1->cy + (rjiy.dot(xp1) + tho0 * tjiy) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fy;
-
-        //////
-        /// \brief unproject
-        ///
-//        Mat lower3Dw = pKF1->UnprojectStereo(kp1.pt.x , kp1.pt.y, 1.0/thoMax);
-//        Mat upper3Dw = pKF1->UnprojectStereo(kp1.pt.x , kp1.pt.y, 1.0/thoMin);
-//        bool proj1 = pKF2->ProjectStereo(lower3Dw, u0, v0);
-//        bool proj2 = pKF2->ProjectStereo(upper3Dw,u1, v1);
-
-//        if(!proj1 || !proj2){
-//            continue;
-//        }
-//        cout<<" ini proj u0: "<<u0<<"u1: "<<u1<<"v0: "<<v0<<"v1: "<<v1<<endl;
-
-        //float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
 
         ////////////////////////
         /// \brief minU
@@ -613,7 +493,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             dx = -b / a;
             dy = 1.0;
         }
-//        cout<<"init p "<<startCord<<endl;
 
         if(!cordInImageBounds(startCord.x,startCord.y,width,height))
         {
@@ -621,7 +500,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             //cout<<"bounds p "<<startCord<<endCord<<endl;
             if(!bounds)
             {
-//                cout<<"out of bound "<<endl;
                 continue;
             }
             else
@@ -714,22 +592,22 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //               cordP.x = floor(x);
 //               cordP.y= floor(y);
-                               cordP.x = round(x);
-                               cordP.y= round(y);
+                Point2f disp = Point2f(x,y);
+                Distort(disp, pKF2);
+                cordP.x = round(disp.x);
+                cordP.y= round(disp.y);
 //               cout<< "stP "<<cordP<<endl;
                 if(keyPoints2.count(cordP))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
-                    //if(!kp2.fused)
-                    //{
-                        float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
+                    float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
 
-                        // update the best match point
-                        if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
-                            minSimilarityError = similarityError;
-                            matchedCord = Point2f(cordP.x, cordP.y);
-                        }
-                    //}
+                    // update the best match point
+                    if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
+                        minSimilarityError = similarityError;
+                        matchedCord.x = cordP.x;
+                        matchedCord.y = cordP.y;
+                    }
                 }
 
                 x += dOffsetU;
@@ -742,11 +620,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // use the best match point to estimate the distribution
         if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
-//            cout<<matchedCord<<"matchedCord "<<minSimilarityError<<endl;
-            if(!keyPoints2.count(matchedCord)){
-//                cout<<"can't find back"<<endl;
-                continue;
-            }
 
             RcKeyPoint &match = keyPoints2.at(matchedCord);
 
@@ -762,8 +635,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             vector<float> upper,lower;
             match.getNeighbourAcrossLine(a,b,lower,upper);
 
-            float intensityUpper = upper[0],gradientUpper = upper[1];
-            float intensityLower = lower[0],gradientLower = lower[1];
+            float intensityUpper = upper[0], gradientUpper = upper[1];
+            float intensityLower = lower[0], gradientLower = lower[1];
 
             // derivate along epipolar line
             float g = (intensityUpper - intensityLower) / 2.0;
@@ -780,7 +653,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
-                errorSquare = max(2.0f * sigmaI * sigmaI, errorSquare);
+//                errorSquare = max(2.0f * sigmaI * sigmaI, errorSquare);
+                errorSquare = max(1.0e-2f, errorSquare);
 //                continue;
             }
             float u0Star = u0 + leftPart;
@@ -793,10 +667,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 continue;
             }
 
-//            float rhoUpper = calInverseDepthEstimation(kp1, u0Star + sigmaU0Star, pKF1, pKF2);
             float u0Starl = u0Star - sigmaU0Star, u0Starr = u0Star + sigmaU0Star;
             float rhoUpper = (rjiz.dot(xp1) *(u0Starr-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starr-pKF1->cx) + pKF1->fx * tjix );
-//            float rhoLower = calInverseDepthEstimation(kp1, u0Star -  sigmaU0Star, pKF1, pKF2);
             float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
             float sigmaRho = max(fabs(rhoUpper - rho),fabs(rhoLower - rho));
 
@@ -806,6 +678,30 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     }
 }
 
+void MapReconstructor::Distort(Point2f point, KeyFrame* pKF)
+{
+    // To relative coordinates
+    float x = (point.x - pKF->cx) / pKF->fx;
+    float y = (point.y - pKF->cy) / pKF->fy;
+
+    float r2 = x*x + y*y;
+    float k1= mDistCoef.at<float>(0), k2= mDistCoef.at<float>(1),p1= mDistCoef.at<float>(2),p2= mDistCoef.at<float>(3);
+    float k3 = mDistCoef.rows > 4 ? mDistCoef.at<float>(4) : 0;
+    // Radial distorsion
+    float xDistort = x * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+    float yDistort = y * (1 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2);
+
+    // Tangential distorsion
+    xDistort = xDistort + (2 * p1 * x * y + p2 * (r2 + 2 * x * x));
+    yDistort = yDistort + (p1 * (r2 + 2 * y * y) + 2 * p2 * x * y);
+
+    // Back to absolute coordinates.
+    xDistort = xDistort * pKF->fx + pKF->cx;
+    yDistort = yDistort * pKF->fy + pKF->cy;
+
+    point.x = xDistort;
+    point.y = yDistort;
+}
 
 bool MapReconstructor::getSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV )
 {
@@ -1016,77 +912,41 @@ float MapReconstructor::checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint
     float angle2 = kp2.orientation;
     float gradient2 = kp2.gradient;
 
-//    const float num = a*kp2.pt.x+b*kp2.pt.y+c;
-
-//    const float den = a*a+b*b;
-
-//    if(den==0)
-//    {
-//        return similarityError;
-//    }
-
-//    const float dsqr = num*num/den;
-
-//    if(dsqr > 3.84*pKF2->mvLevelSigma2[kp2.octave])
-//    {
-//        return similarityError;
-//    }
-
     // check epipolar line angle with orientation
     float eplAngle = fastAtan2(-a,b);
     float eplAngleDiff  = angle2 - eplAngle ;
-        /*if(eplAngleDiff < 0){
-            eplAngleDiff += 360.0;
-        }else if(eplAngleDiff > 360){
-            eplAngleDiff -= 360.0;
-        }
-eplAngleDiff = min(fabs(eplAngleDiff + 180), fabs(eplAngleDiff - 180));*/
-    while(eplAngleDiff <0 || eplAngleDiff > 90)
+    while(eplAngleDiff <0.0)
     {
-        if(eplAngleDiff < 0){
-            eplAngleDiff += 360.0;
-        }else if(eplAngleDiff > 360){
-            eplAngleDiff -= 360.0;
-        }
-        else{
-            if(eplAngleDiff>180){
-                eplAngleDiff-=180.0;
-            }else if(eplAngleDiff>90){
-                eplAngleDiff=180.0 - eplAngleDiff;
-            }
-        }
+        eplAngleDiff += 360.0;
     }
-    if(eplAngleDiff >= lambdaL){
+    while(eplAngleDiff >360.0)
+    {
+        eplAngleDiff -= 360.0;
+    }
+    if((lambdaL <= eplAngleDiff && eplAngleDiff < (180.0-lambdaL)) || ((180.0 + lambdaL) <= eplAngleDiff && eplAngleDiff < (360.0-lambdaL)) )
+    {
         return similarityError;
     }
 
     // check in-plane rotation
-//    float medianRotation = calcInPlaneRotation(pKF1,pKF2);
     float angleDiff = angle2 - angle1 - medianRotation;
-/*if(angleDiff < 0){
-            angleDiff += 360.0;
-        }else if(angleDiff > 360){
-            angleDiff -= 360.0;
-        }*/
-angleDiff = fabs(angleDiff);
+    while(angleDiff <0.0)
+    {
+        angleDiff += 360.0;
+    }
+    while(angleDiff >360.0)
+    {
+        angleDiff -= 360.0;
+    }
 
-//    while(angleDiff <0 || angleDiff > 90)
-//    {
-//        if(angleDiff < 0){
-//            angleDiff += 360.0;
-//        }else if(angleDiff > 360){
-//            angleDiff -= 360.0;
-//        }
-//        else{
-//            if(angleDiff>180){
-//                angleDiff-=180.0;
-//            }else if(angleDiff>90){
-//                angleDiff=180.0 - angleDiff;
-//            }
-//        }
+//    angleDiff = fabs(angleDiff);
+
+//    if(angleDiff >= lambdaThe){
+//        return similarityError;
 //    }
 
-    if(angleDiff >= lambdaThe){
+    if((lambdaThe <= angleDiff && angleDiff < (180.0-lambdaThe)) || ((180.0 + lambdaThe) <= angleDiff && angleDiff < (360.0-lambdaThe)) )
+    {
         return similarityError;
     }
 
@@ -1097,63 +957,8 @@ angleDiff = fabs(angleDiff);
     return similarityError;
 }
 
-float MapReconstructor::calInverseDepthEstimation(RcKeyPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2){
-
-    cv::Mat R1w = pKF1->GetRotation();
-    cv::Mat t1w = pKF1->GetTranslation();
-    cv::Mat R2w = pKF2->GetRotation();
-    cv::Mat t2w = pKF2->GetTranslation();
-
-//    cv::Mat R12 = R1w*R2w.t();
-    cv::Mat R21 = R2w*R1w.t();
-//    cv::Mat t12 = -R1w*R2w.t()*t2w+t1w;
-    cv::Mat t21 = -R2w*R1w.t()*t1w+t2w;
-
-//    cv::Mat rjiz = (cv::Mat_<float>(1,3) << R12.at<float>(2,0), R12.at<float>(2,1), R12.at<float>(2,2));
-//    cv::Mat rjix = (cv::Mat_<float>(1,3) << R12.at<float>(0,0), R12.at<float>(0,1), R12.at<float>(0,2));
-    cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
-    cv::Mat rjix = (cv::Mat_<float>(1,3) << R21.at<float>(0,0), R21.at<float>(0,1), R21.at<float>(0,2));
-
-    cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF1->cx)*pKF1->invfx, (kp1.pt.y-pKF1->cy)*pKF1->invfy, 1.0);
-
-//    float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-t12.at<float>(2) * (u0Star-pKF1->cx) + pKF1->fx * t12.at<float>(0) );
-    float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-t21.at<float>(2) * (u0Star-pKF1->cx) + pKF1->fx * t21.at<float>(0) );
-
-    return rho;
-}
-
-bool MapReconstructor::CheckDistEpipolarLine(RcKeyPoint &kp1,RcKeyPoint &kp2,cv::Mat &F12,KeyFrame* pKF)
-{
-    // Epipolar line in second image l = x1'F12 = [a b c]
-    const float a = kp1.pt.x*F12.at<float>(0,0)+kp1.pt.y*F12.at<float>(1,0)+F12.at<float>(2,0);
-    const float b = kp1.pt.x*F12.at<float>(0,1)+kp1.pt.y*F12.at<float>(1,1)+F12.at<float>(2,1);
-    const float c = kp1.pt.x*F12.at<float>(0,2)+kp1.pt.y*F12.at<float>(1,2)+F12.at<float>(2,2);
-
-    const float num = a*kp2.pt.x+b*kp2.pt.y+c;
-
-    const float den = a*a+b*b;
-
-    if(den==0)
-        return false;
-
-    const float dsqr = num*num/den;
-
-    return dsqr<3.84*pKF->mvLevelSigma2[kp2.octave];
-}
-
-float MapReconstructor::calcInPlaneRotation(KeyFrame* pKF1,KeyFrame* pKF2){
-    cv::Mat R1w = pKF1->GetRotation();
-    cv::Mat R2w = pKF2->GetRotation();
-
-    cv::Mat R21 = R2w*R1w.t();
-
-    float roInPlane = fastAtan2(R21.at<uchar>(2,1), R21.at<uchar>(1,1));
-    return roInPlane;
-}
-
 float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
 {
-
     const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF1->mnId);
     const map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(pKF2->mnId);
 
@@ -1163,7 +968,6 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
     vector<float> angles;
     float median = 0.0;
 
-//    vector<MapPoint*> mMps = pKF1->GetMapPointMatches();
     set<MapPoint*> mMps = pKF1->GetMapPoints();
     for(set<MapPoint*>::iterator vitMP=mMps.begin(), vendMP=mMps.end(); vitMP!=vendMP; vitMP++)
     {
@@ -1182,18 +986,14 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
             KeyPoint kp2 = mvKeys2[idx2];
             Point2f c1 = Point2f(kp1.pt.x, kp1.pt.y);
             Point2f c2 = Point2f(kp2.pt.x, kp2.pt.y);
-
-//            cout<<keyPoints1.count(c1)<<","<<keyPoints2.count(c2)<<endl;
             if(keyPoints1.count(c1) && keyPoints2.count(c2))
             {
                 float ort2 = keyPoints2.at(c2).orientation, ort1 = keyPoints1.at(c1).orientation;
-//float diff = ort2 - ort1;
-//if(diff>360) diff-=360.0;
-//else if(diff<0) diff+=360.0;
-                angles.push_back(ort2-ort1);
+                angles.push_back(ort2 - ort1);
             }
         }
     }
+
     if(angles.empty())
     {
         return median;
@@ -1264,7 +1064,6 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
     for(auto &kpit : keyPoints)
     {
         RcKeyPoint &kp1 = kpit.second;
-        //        cout<<kp1.hypotheses.size()<<endl;
         vector<pair<float, float>> &hypos = kp1.hypotheses;
 
         // DEBUG
@@ -1456,8 +1255,20 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
 
             float tho1 = kp1.tho;
 
+            // undistort
+            cv::Mat mat(1,2,CV_32F);
+            mat.at<float>(0,0)=kp1.pt.x;
+            mat.at<float>(0,1)=kp1.pt.y;
+
+            mat=mat.reshape(2);
+            cv::undistortPoints(mat,mat,pKF->mK,mDistCoef,cv::Mat(), pKF->mK);
+            mat=mat.reshape(1);
+
+            float x=mat.at<float>(0,0);
+            float y=mat.at<float>(0,1);
+
             // Xba(p) = K.inv() * xp
-            cv::Mat xp1 = (cv::Mat_<float>(1,3) << (kp1.pt.x-pKF->cx)*pKF->invfx, (kp1.pt.y-pKF->cy)*pKF->invfy, 1.0);
+            cv::Mat xp1 = (cv::Mat_<float>(1,3) << (x-pKF->cx)*pKF->invfx, (y-pKF->cy)*pKF->invfy, 1.0);
 //            cout<<"xp1 "<<xp1<<endl;
             float invTho = 1.0/tho1;
             cv::Mat D = (Mat_<float>(3,3) << invTho,0,0,0, invTho,0,0,0, invTho);
@@ -1473,6 +1284,11 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
 
             // check neighbours
             float uj = xj.at<float>(0) / xj.at<float>(2), vj = xj.at<float>(1) / xj.at<float>(2);
+            Point2f disp = Point2f(uj, vj);
+            Distort(disp, pKF2);
+            uj = disp.x;
+            vj = disp.y;
+
             vector<Point2f> neighbours;
             neighbours.push_back(Point2f(floor(uj), floor(vj)));
             neighbours.push_back(Point2f(floor(uj), ceil(vj)));
@@ -1558,7 +1374,7 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         }
 
 //        kp1.mDepth = zh;
-        if(zh > 8) return;
+        if(zh > depthThresholdMax) return;
 
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
         if(!x3D.empty()){

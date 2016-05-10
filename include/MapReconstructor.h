@@ -30,6 +30,9 @@ public:
     int width;
     int height;
 
+    // Dist Coef
+    cv::Mat mDistCoef;
+
     // re-construction key point
     struct RcKeyPoint
     {
@@ -226,6 +229,7 @@ public:
     void intraKeyFrameChecking(KeyFrame* pKF);
     void addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
     void interKeyFrameChecking(KeyFrame* pKF);
+    void Distort(cv::Point2f point, KeyFrame* pKF);
     
     bool  getSearchAreaForWorld3DPointInKF( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV );
 private:
