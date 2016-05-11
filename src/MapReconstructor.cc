@@ -411,8 +411,6 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         const float a = xudist*F12.at<float>(0,0)+yudist*F12.at<float>(1,0)+F12.at<float>(2,0);
         const float b = xudist*F12.at<float>(0,1)+yudist*F12.at<float>(1,1)+F12.at<float>(2,1);
         const float c = xudist*F12.at<float>(0,2)+yudist*F12.at<float>(1,2)+F12.at<float>(2,2);
-        const float signa = (a<0 ?  -1.0 : 1.0);
-        const float signb = (b<0 ?  -1.0 : 1.0);
 
         if(a==0&&b==0)
         {
@@ -421,25 +419,21 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // Xba(p) = K.inv() * xp
         cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
-//        float sigmaEst = sigma0/4.0;
-        float sigmaEst = initVarienceFactor * (kp1.mDepth + 1.0);
+//        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
+//        cv::Mat xp1 = pKF1->mK.inv() * xp;
 
 ////////////////////////
-        if(kp1.mDepth>0){
             tho0 = 1.0/kp1.mDepth;
-//            sigmaEst *= (kp1.mDepth + 1.0);
-        }
+            float sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
 ////////////////////////
-        float thoMax = tho0 + 2.0*sigmaEst, thoMin = tho0 - 2.0*sigmaEst;
-        float u0, u1, v0, v1, up, vp;
+        float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
+//        float u0, u1, v0, v1, up, vp;
 
-        u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
-        u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
-        v0 = pKF1->cy + (rjiy.dot(xp1) + thoMax * tjiy) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fy;
-        v1 = pKF1->cy + (rjiy.dot(xp1) + thoMin * tjiy) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fy;
+//        float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
+        float u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
+        float u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
 
-        up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
-        vp = pKF1->cy + (rjiy.dot(xp1) + tho0 * tjiy) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fy;
+//        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
 
         ////////////////////////
         /// \brief minU
@@ -459,7 +453,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        if(fabs(u0 - u1) < 0.1) continue;
 
         float minU = min(u0, u1), maxU = max(u0, u1);
-        float minV = min(v0, v1), maxV = max(v0, v1);
+        float minV = 0, maxV = 0;
+//        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
 
         float offset = epipolarSearchOffset, dx, dy;
         //////
@@ -470,14 +465,29 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        b=0;
         ///
         //////
+        float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
+        float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
 
-        float dOffsetU = signa * sqrt(a * a / (a*a + b*b));
-        float dOffsetV = signb * sqrt(b * b / (a*a + b*b));
+        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
 
         Point2f startCord;
         Point2f endCord;
-        bool majorDirX = (fabs(a) < fabs(b));
-        if(majorDirX)
+        if(parralexWithYAxis)
+        {
+            minV = 0;
+            maxV = height;
+            //////
+            ///
+//            minV = lowerBoundYInKF2;
+//            maxV = upperBoundYInKF2;
+            ///
+            //////
+            startCord.x = minU;
+            startCord.y = minV;
+            dx = 1.0;
+            dy = 0;
+        }
+        else
         {
             startCord.x = minU;
             startCord.y = -(c + a * minU) / b;
@@ -485,14 +495,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             dx = 1.0;
             dy = -a / b;
         }
-        else
-        {
-            startCord.y = minV;
-            startCord.x = -(c + b * minV) / a;
-            minU = maxU = startCord.x;
-            dx = -b / a;
-            dy = 1.0;
-        }
+//        cout<<"init p "<<startCord<<endl;
 
         if(!cordInImageBounds(startCord.x,startCord.y,width,height))
         {
@@ -500,30 +503,25 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             //cout<<"bounds p "<<startCord<<endCord<<endl;
             if(!bounds)
             {
+//                cout<<"out of bound "<<endl;
                 continue;
             }
             else
             {
                 minU = max(startCord.x, minU);
                 maxU = min(maxU, endCord.x);
-                minV = max(min(startCord.y,endCord.y), minV);
-                maxV = min(maxV, max(startCord.y,endCord.y));
-
-                if(majorDirX)
+                if(!parralexWithYAxis)
                 {
-                    minV = maxV = -(c + a * minU) / b;
-                }
-                else
-                {
-                    minU = maxU = -(c + b * minV) / a;
+                    minV = -(c + a * minU) / b;
+                    maxV = -(c + a * minU) / b;
                 }
             }
         }
 
-//        minU -= offsetU;
-//        maxU += offsetU;
-//        minV -= offsetV;
-//        maxV += offsetV;
+        minU -= offsetU;
+        maxU += offsetU;
+        minV -= offsetV;
+        maxV += offsetV;
         startCord.x = minU;
         startCord.y = minV;
 
@@ -543,52 +541,11 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cout<<"u0 "<<u0<<" v0 "<<v0<<" up "<<up<<" vp "<<vp<<" u1 "<<u1<<" v1 "<<v1<<endl;
 
         Point2f cordP;
-        while((majorDirX && (startCord.x < (maxU + 2.0))) || (!majorDirX && (startCord.y < (maxV + 2.0))))
-//        while(abs(x -maxU) < 1.0 && ( abs(y -maxV) < 1))
+        while(startCord.x < (maxU + 1.0))
         {
             float x = startCord.x, y = startCord.y;
-            float ofMaxU, ofMaxV;
-            float offsetX, offsetY, ratio=1.0f;
-
-            // calc edge and start point for inner iteration
-//            float dru, drv;
-//            if((b*(x - up) -a*(y - vp)) < 0.0)
-//            {
-//                dru = u0;
-//                drv = v0;
-//            }
-//            else
-//            {
-//                dru = u1;
-//                drv = v1;
-//            }
-//            ratio = sqrt(((x - dru)*(x - dru) + (y - drv)*(y - drv))/((up - dru)*(up - dru) + (vp - drv)*(vp - drv)));
-//            if(ratio>1.0)
-//            {
-//                startCord.x += dx;
-//                startCord.y += dy;
-//                continue;
-//            }
-
-            offsetX = offset * dOffsetU * ratio;
-            offsetY = offset * dOffsetV * ratio;
-//            cout<<"(b*(x - up) -a*(y - vp))  " <<(b*(x - up) -a*(y - vp)) <<endl;
-//                cout<<"x "<<x<<" y "<<y<<endl;
-//                cout<<"ratio "<<ratio<<" signa "<<signa<<" signb "<<signb<<" signa "<<signa<<endl;
-//                cout<<"offsetY "<<offsetY<<" offsetX "<<offsetX<<endl;
-
-            x -= offsetX;
-            y -= offsetY;
-            float signofx = (offsetX<0?-1.0:1.0);
-            float signofy = (offsetY<0?-1.0:1.0);
-            ofMaxU = x + 2 * offsetX + signofx;
-            ofMaxV = y + 2 * offsetY + signofy;
-//            cout<<"md : x "<<x<<" y "<<y<<endl;
-//            cout<<"ofMaxU "<<ofMaxU<<" ofMaxV "<<ofMaxV<<endl;
-
 //            cout<< "stx "<<startCord<<endl;
-//            while((majorDirX && (y < (maxV + 1.0))) || (!majorDirX && (x < (maxU + 1.0))))
-            while(( abs(y -ofMaxV) > 1) && abs(x -ofMaxU) > 1)
+            while(y<(maxV + 1.0))
             {
 //               cordP.x = floor(x);
 //               cordP.y= floor(y);
@@ -600,22 +557,27 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 if(keyPoints2.count(cordP))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(cordP);
-                    float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
+                    //if(!kp2.fused)
+                    //{
+                        float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
 
-                    // update the best match point
-                    if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
-                        minSimilarityError = similarityError;
-                        matchedCord.x = cordP.x;
-                        matchedCord.y = cordP.y;
-                    }
+                        // update the best match point
+                        if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
+                            minSimilarityError = similarityError;
+                            matchedCord = Point2f(cordP.x, cordP.y);
+                        }
+                    //}
                 }
 
-                x += dOffsetU;
-                y += dOffsetV;
+                y += 1.0;
             }
 
             startCord.x += dx;
             startCord.y += dy;
+            if(!parralexWithYAxis)
+            {
+                maxV += dy;
+            }
         }
 
         // use the best match point to estimate the distribution
@@ -984,13 +946,14 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
 
             KeyPoint kp1 = mvKeys1[idx1];
             KeyPoint kp2 = mvKeys2[idx2];
-            Point2f c1 = Point2f(kp1.pt.x, kp1.pt.y);
-            Point2f c2 = Point2f(kp2.pt.x, kp2.pt.y);
-            if(keyPoints1.count(c1) && keyPoints2.count(c2))
-            {
-                float ort2 = keyPoints2.at(c2).orientation, ort1 = keyPoints1.at(c1).orientation;
-                angles.push_back(ort2 - ort1);
-            }
+            angles.push_back(kp2.angle - kp1.angle);
+//            Point2f c1 = Point2f(kp1.pt.x, kp1.pt.y);
+//            Point2f c2 = Point2f(kp2.pt.x, kp2.pt.y);
+//            if(keyPoints1.count(c1) && keyPoints2.count(c2))
+//            {
+//                float ort2 = keyPoints2.at(c2).orientation, ort1 = keyPoints1.at(c1).orientation;
+//                angles.push_back(ort2 - ort1);
+//            }
         }
     }
 
