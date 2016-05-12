@@ -124,6 +124,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     mnId=nNextId++;
 
     // Referenced images
+    normalize(imGray, imGray, 0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
     mRefImgGray = imGray;
     mRefImgDepth = imDepth;
 

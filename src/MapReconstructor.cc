@@ -142,21 +142,26 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+    normalize(orientation, orientation, 0x00, 0xFF, NORM_MINMAX, CV_16U);
+//    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
 }
 
 void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation, KeyFrame *pKF, const float gradientThreshold){
-    Mat image = pKF->mRefImgGray;
-    Mat depths = pKF->mRefImgDepth;
+    Mat &image = pKF->mRefImgGray;
+    Mat &depths = pKF->mRefImgDepth;
 
      map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
 
-    for(int row = 0; row < gradient.rows; ++row) {
+    for(int row = 0; row < image.rows; ++row) {
         uchar* p = gradient.ptr<uchar>(row);
-        for(int col = 0; col < gradient.cols; ++col) {
-            int gradientModulo = p[col];
+        uchar* pg = gradient.ptr<uchar>(row);
+        for(int col = 0; col < image.cols; ++col) {
+//            float gradientModulo = p[col];
+            int intensity = p[col];
+            Point2f cord = Point2f(col, row);
+            int gradientModulo = pg[col];
 
             // 1. filter with intensity threshold
             if(gradientModulo <= gradientThreshold)
@@ -166,19 +171,32 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 
             if(!pKF->IsInImage(col,row))continue;
 
-            float depth = depths.at<float>(Point(col, row));
+            float depth = depths.at<float>(cord);
             if(depth<=depthThresholdMin || depth > depthThresholdMax)
             {
                 continue;
             }
 
-            float angle = orientation.at<float>(Point(col, row));
-            float intensity = image.at<float>(Point(col, row));
-            Point2f cord = Point2f(col, row);
+            float &angle = orientation.at<float>(cord);
+//            int &intensity = image.at<int>(cord);
+//            cout<<"intensity "<<saturate_cast<float>(intensity)<<" angle "<<angle<<" gradientModulo "<<saturate_cast<float>(gradientModulo)<<endl;
             RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,0,depth);
 
             // fill neighbour info
-            hgkp.fetchNeighbours(image, gradient);
+//            hgkp.fetchNeighbours(image, gradient);
+            vector<Point2f> neighbours;
+            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
+                neighbours.push_back(ptn);
+            });
+            for(Point2f &pt: neighbours)
+            {
+                vector<float> msg;
+                float nIntensity = (float)image.at<uchar>(pt), nGradientModulo = (float)gradient.at<uchar>(pt);
+                msg.push_back(nIntensity);
+                msg.push_back(nGradientModulo);
+//                cout<<"neighbour "<<"intensity "<<msg[0]<<" gradientModulo "<<msg[1]<<endl;
+                hgkp.neighbours.push_back(msg);
+            }
 
             // undistort
 //            cv::Mat mat(1,2,CV_32F);
@@ -419,11 +437,11 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
         // Xba(p) = K.inv() * xp
         cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
-//        cv::Mat xp = (cv::Mat_<float>(3,1) << kp1.pt.x, kp1.pt.y, 1.0);
-//        cv::Mat xp1 = pKF1->mK.inv() * xp;
+//        cv::Mat xp = (cv::Mat_<float>(1,3) << kp1.pt.x, kp1.pt.y, 1.0);
+//        cv::Mat xp1 = pKF1->mK.inv() * xp.t();
 
 ////////////////////////
-            tho0 = 1.0/kp1.mDepth;
+            tho0 = 1.0/((initVarienceFactor + 1.0f) * kp1.mDepth);
             float sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
 ////////////////////////
         float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
@@ -615,8 +633,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             {
 //                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
-//                errorSquare = max(2.0f * sigmaI * sigmaI, errorSquare);
-                errorSquare = max(1.0e-2f, errorSquare);
+                errorSquare = max(initVarienceFactor, errorSquare);
 //                continue;
             }
             float u0Star = u0 + leftPart;
@@ -1115,7 +1132,7 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
             }
 
             kp1.intraCheckCount = totalCompact;
-            addKeyPointToMap(kp1, pKF);
+//            addKeyPointToMap(kp1, pKF);
 //            kp1.addHypo(tho, sigma, 0);
         }
     }
@@ -1211,7 +1228,7 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
             vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
             set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
 
-            if(!kp1.fused /*|| !kp1.intraCheckCount*/)
+            if(!kp1.fused || !kp1.intraCheckCount)
             {
                 continue;
             }
@@ -1305,12 +1322,12 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
     for(RcKeyPoint &vkp: validPoints)
     {
 //        cout<<"vkp.interCheckCount "<<vkp.interCheckCount<<endl;
-        size_t count = depthErrorKeyframes.at(vkp.pt).size();
+        int count = (int)depthErrorKeyframes.at(vkp.pt).size();
         if(count > lambdaN)
         {
             vector<vector<float>> &params = depthErrorEstimateFactors.at(vkp.pt);
             float dpstar = estimate(params);
-                    cout<<"create estimate "<<dpstar<<" former "<<1.0/vkp.tho<<endl;
+//                    cout<<"create estimate "<<dpstar<<" former "<<1.0/vkp.tho<<endl;
                     vkp.tho = 1.0f/dpstar;
             addKeyPointToMap(vkp, pKF);
         }
@@ -1342,7 +1359,8 @@ void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
         if(!x3D.empty()){
 
-            MapPoint* pMP = new MapPoint(x3D,pKF,mpMap);
+            cv::Mat rgb = (cv::Mat_<float>(3,1) << kp1.intensity,kp1.intensity,kp1.intensity);
+            MapPoint* pMP = new MapPoint(x3D,pKF,mpMap,rgb);
             pMP->UpdateNormalAndDepth();
             mpMap->AddMapPoint(pMP);
 

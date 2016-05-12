@@ -37,8 +37,8 @@ public:
     struct RcKeyPoint
     {
         cv::Point2f pt;
-        float intensity;
-        float gradient;
+        uchar intensity;
+        uchar gradient;
         float orientation;
         int octave;
 
