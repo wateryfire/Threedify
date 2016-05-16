@@ -13,3 +13,5 @@ target_link_libraries (Export ${PCL_LIBRARIES})
 
 add_executable (PcdToPly PcdToPly.cc)
 target_link_libraries (PcdToPly ${PCL_LIBRARIES})
+
+add_executable (PcdToXyz PcdToXyz.cc)

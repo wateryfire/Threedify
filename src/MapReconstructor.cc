@@ -141,8 +141,9 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
     cartToPolar(gradientX,gradientY,modulo,orientation,true);
 
     // ? loss of precies
-    normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
-    normalize(orientation, orientation, 0x00, 0xFF, NORM_MINMAX, CV_16U);
+//    modulo.convertTo(modulo,CV_8U);
+        normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_8U);
+    orientation.convertTo(orientation,CV_16U);
 //    normalize(pKeyFrame->mRefImgGray, pKeyFrame->mRefImgGray, 0x00, 0xFF, NORM_MINMAX, CV_8U);
 
     highGradientAreaKeyPoints(modulo,orientation, pKeyFrame, lambdaG);
@@ -155,7 +156,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
      map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
 
     for(int row = 0; row < image.rows; ++row) {
-        uchar* p = gradient.ptr<uchar>(row);
+        uchar* p = image.ptr<uchar>(row);
         uchar* pg = gradient.ptr<uchar>(row);
         for(int col = 0; col < image.cols; ++col) {
 //            float gradientModulo = p[col];
@@ -177,7 +178,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
                 continue;
             }
 
-            float &angle = orientation.at<float>(cord);
+            float angle = orientation.at<float>(cord);
 //            int &intensity = image.at<int>(cord);
 //            cout<<"intensity "<<saturate_cast<float>(intensity)<<" angle "<<angle<<" gradientModulo "<<saturate_cast<float>(gradientModulo)<<endl;
             RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,0,depth);
@@ -657,7 +658,7 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     }
 }
 
-void MapReconstructor::Distort(Point2f point, KeyFrame* pKF)
+void MapReconstructor::Distort(Point2f &point, KeyFrame* pKF)
 {
     // To relative coordinates
     float x = (point.x - pKF->cx) / pKF->fx;
