@@ -247,7 +247,7 @@ void MapReconstructor::RunToReconstructMap()
         cout << "MapReconstructor: Reconstructing map from the key frame (FrameId: " << currentKeyFrame->mnId << ")." << endl;
 
         bool frameValid = CheckNewKeyFrames(currentKeyFrame);
-        if (frameValid /*|| retryCount>7*/)
+        if (frameValid || !keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
             //Get Mutex-lock to access the queue of key frames.
             {
@@ -274,7 +274,7 @@ void MapReconstructor::RunToReconstructMap()
             intraKeyFrameChecking(currentKeyFrame);
         }
 
-        if((int)interKeyFrameCheckingStack.size() > kN)
+        while((int)interKeyFrameCheckingStack.size() > kN)
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
             interKeyFrameChecking(currentKeyFrameInterChecking);
