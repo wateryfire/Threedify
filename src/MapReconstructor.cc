@@ -1229,7 +1229,7 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
             vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
             set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
 
-            if(!kp1.fused || !kp1.intraCheckCount)
+            if(!kp1.fused /*|| !kp1.intraCheckCount*/)
             {
                 continue;
             }
