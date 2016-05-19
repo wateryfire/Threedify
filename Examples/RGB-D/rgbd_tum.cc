@@ -197,9 +197,9 @@ void SaveMapPoints(ORB_SLAM2::Map *map, const string &tracksfile) {
                     << " " << coords.at<float>(0, 0)
                     << " " << coords.at<float>(1, 0)
                     << " " << coords.at<float>(2, 0)
-                    << " " << color.at<float>(2)
-                    << " " << color.at<float>(1)
                     << " " << color.at<float>(0)
+                    << " " << color.at<float>(1)
+                    << " " << color.at<float>(2)
                     << std::endl;
         }
     }

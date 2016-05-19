@@ -130,14 +130,21 @@ void ImageGrabber::SaveKeyFrameTrajectory(ORB_SLAM2::Map *map, const string &tra
             continue;
 
         auto coords = pMp->GetWorldPos();
-        fpoints << setprecision(6)
+        cv::Mat color = pMp->GetRGBColor();
+        if(!color.empty())
+{
+fpoints << setprecision(6)
                 << pMp->mnFirstKFid
                 << " " << pMp->mnId
                 << setprecision(7)
                 << " " << coords.at<float>(0, 0)
                 << " " << coords.at<float>(1, 0)
                 << " " << coords.at<float>(2, 0)
+                    << " " << color.at<float>(0)
+                    << " " << color.at<float>(1)
+                    << " " << color.at<float>(2)
                 << std::endl;
+}
     }
 
     fpoints.close();

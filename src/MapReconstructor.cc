@@ -13,6 +13,7 @@ using namespace std;
 namespace ORB_SLAM2
 {
 float errorTolerenceFactor,initVarienceFactor;
+bool measuredDepthConstraient = true;
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
 		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
@@ -55,6 +56,7 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     epipolarSearchOffset = fSettings["ReConstruction.searchOffset"];
     errorTolerenceFactor = fSettings["ReConstruction.errorTolerenceFactor"];
     initVarienceFactor = fSettings["ReConstruction.initVarienceFactor"];
+    measuredDepthConstraient = ((int)fSettings["ReConstruction.disableMeasuredDepthConstraient"] ==0);
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -264,7 +266,7 @@ void MapReconstructor::RunToReconstructMap()
             continue;
         }
 
-        if(frameValid)
+        if(frameValid &&keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
 
             CreateNewMapPoints(currentKeyFrame);
@@ -277,7 +279,10 @@ void MapReconstructor::RunToReconstructMap()
         while((int)interKeyFrameCheckingStack.size() > kN)
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
-            interKeyFrameChecking(currentKeyFrameInterChecking);
+            if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
+            {
+                interKeyFrameChecking(currentKeyFrameInterChecking);
+            }
             interKeyFrameCheckingStack.pop_front();
         }
     }
@@ -441,9 +446,13 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        cv::Mat xp = (cv::Mat_<float>(1,3) << kp1.pt.x, kp1.pt.y, 1.0);
 //        cv::Mat xp1 = pKF1->mK.inv() * xp.t();
 
+        float sigmaEst = sigma0;
 ////////////////////////
+        if(measuredDepthConstraient)
+        {
             tho0 = 1.0/((initVarienceFactor + 1.0f) * kp1.mDepth);
-            float sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
+            sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
+        }
 ////////////////////////
         float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
 //        float u0, u1, v0, v1, up, vp;
@@ -991,6 +1000,14 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
     else
     {
         median = angles[size / 2];
+    }
+    if(median>360.0){
+        cout<<"invalid median rotation"<<endl;
+        for(float diff:angles)
+        {
+            cout<<"mp angle diff "<<diff<<endl;
+        }
+        median = 0.0;
     }
 
     return median;
