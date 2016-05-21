@@ -1,0 +1,97 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+
+# Camera calibration and distortion parameters (OpenCV) 
+#Camera.fx: 1.0531662928957508e+03
+#Camera.fy: 1.0535195741222558e+03
+#Camera.cx: 9.7751923505855962e+02
+#Camera.cy: 5.3760264217127633e+02
+
+Camera.fx: 526.5831464478754
+Camera.fy: 526.7597870611279
+Camera.cx: 488.7596175292798
+Camera.cy: 268.80132108563816
+
+Camera.k1: 2.4546931559645192e-02
+Camera.k2: -4.2730400239987337e-02
+Camera.p1: 1.0849294792684709e-03
+Camera.p2: 8.2944685054159837e-04
+Camera.k3: 8.3412236467355176e-03
+
+#Camera.width: 1920
+#Camera.height: 1080
+
+Camera.width: 960
+Camera.height: 540
+
+# Camera frames per second 
+Camera.fps: 30.0
+
+# IR projector baseline times fx (aprox.)
+Camera.bf: 40.0
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+# Close/Far threshold. Baseline times.
+ThDepth: 50.0
+
+# Deptmap values factor 
+DepthMapFactor: 1000.0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 1000
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize:2
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3
+Viewer.ViewpointX: 0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500
+
+#--------------------------------------------------------------------------------------------
+# Re-construction Parameters
+#--------------------------------------------------------------------------------------------
+ReConstruction.KN: 7
+ReConstruction.sigmaI: 20.0
+ReConstruction.lambdaG: 20.0
+ReConstruction.lambdaL: 80.0
+ReConstruction.lambdaThe: 45.0
+ReConstruction.lambdaN: 3
+ReConstruction.theta: 0.23
+ReConstruction.disabled: 1
+
+ReConstruction.maxDepth: 20.0
+ReConstruction.minDepth: 0.2
+ReConstruction.searchOffset: 0.1
+ReConstruction.errorTolerenceFactor: 0.05
+ReConstruction.initVarienceFactor: 0.02
+ReConstruction.depthGradientThres: 11.0
+ReConstruction.disableMeasuredDepthConstraient: 0
