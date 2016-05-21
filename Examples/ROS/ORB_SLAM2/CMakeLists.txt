@@ -77,3 +77,11 @@ target_link_libraries(RGBD
 ${LIBS}
 )
 
+rosbuild_add_executable(RGBDV
+src/ros_rgbd_v.cc
+)
+
+target_link_libraries(RGBDV
+${LIBS}
+)
+
