@@ -26,13 +26,47 @@ MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
     // Get re-construction params from settings file
     //todo: Exception handling and default value
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    kN = fSettings["ReConstruction.KN"];
-    sigmaI = fSettings["ReConstruction.sigmaI"];
-    lambdaG = fSettings["ReConstruction.lambdaG"];
-    lambdaL = fSettings["ReConstruction.lambdaL"];
-    lambdaThe = fSettings["ReConstruction.lambdaThe"];
-    lambdaN = fSettings["ReConstruction.lambdaN"];
-    theta = fSettings["ReConstruction.theta"];
+    int fsKN = fSettings["ReConstruction.KN"];
+    if(fsKN > 0)
+    {
+        kN = fsKN;
+    }
+
+    int fsLambdaN = fSettings["ReConstruction.lambdaN"];
+    if(fsLambdaN > 0)
+    {
+        lambdaN = fsLambdaN;
+    }
+
+    float fsSigmaI = fSettings["ReConstruction.sigmaI"];
+    if(fsKN > 0)
+    {
+        sigmaI = fsSigmaI;
+    }
+
+    float fsLambdaG = fSettings["ReConstruction.lambdaG"];
+    if(fsLambdaG>0)
+    {
+        lambdaG = fsLambdaG;
+    }
+
+    float fsLambdaL = fSettings["ReConstruction.lambdaL"];
+    if(fsLambdaL>0)
+    {
+        lambdaL = fsLambdaL;
+    }
+
+    float fsLambdaThe = fSettings["ReConstruction.lambdaThe"];
+    if(fsLambdaThe>0)
+    {
+        lambdaThe = fsLambdaThe;
+    }
+
+    float fsTheta = fSettings["ReConstruction.theta"];
+    if(fsTheta>0)
+    {
+        theta = fsTheta;
+    }
 
     // camera params
     width = fSettings["Camera.width"];
