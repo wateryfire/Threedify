@@ -579,11 +579,11 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint 
     float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
     float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
 
-    bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
+    bool paralledWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
 
     Point2f startCord;
     Point2f endCord;
-    if(parralexWithYAxis)
+    if(paralledWithYAxis)
     {
 
         minV = min(v0,v1);
@@ -613,7 +613,7 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint 
         {
             minU = max(startCord.x, minU);
             maxU = min(maxU, endCord.x);
-            if(!parralexWithYAxis)
+            if(!paralledWithYAxis)
             {
                 minV = -(c + a * minU) / b;
                 maxV = -(c + a * minU) / b;
@@ -667,7 +667,7 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint 
 
         startCord.x += dx;
         startCord.y += dy;
-        if(!parralexWithYAxis)
+        if(!paralledWithYAxis)
         {
             maxV += dy;
         }
