@@ -260,7 +260,7 @@ void MapReconstructor::RunToReconstructMap()
         currentKeyFrame = mlpKFQueueForReonstruction.front();
         cout << "MapReconstructor: Reconstructing map from the key frame (FrameId: " << currentKeyFrame->mnId << ")." << endl;
 
-        bool frameValid = CheckNewKeyFrames(currentKeyFrame);
+        bool frameValid = (mlpKFQueueForReonstruction.size() > (size_t)10);
         if (frameValid || !keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
             //Get Mutex-lock to access the queue of key frames.
@@ -270,32 +270,32 @@ void MapReconstructor::RunToReconstructMap()
                 interKeyFrameCheckingStack.push_back(currentKeyFrame);
             }
             retryCount=0;
+
+            if(keyframeKeyPointsMap.count(currentKeyFrame->mnId))
+            {
+                map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
+
+    //            for(auto &kpit : keyPoints1)
+    //            {
+    //                RcKeyPoint &kp1 = kpit.second;
+    //                kp1.tho = 1.0f / kp1.mDepth;
+    //                kp1.sigma = initVarienceFactor/(1.0 - initVarienceFactor) * kp1.mDepth;
+    //                kp1.intraCheckCount  = 1;
+    //                kp1.fused = true;
+    //            }
+
+                CreateNewMapPoints(currentKeyFrame);
+
+                fuseHypo(currentKeyFrame);
+
+                intraKeyFrameChecking(currentKeyFrame);
+            }
         }
         else
         {
             retryCount ++;
-            sleep(1);
+            usleep(30000);
             continue;
-        }
-
-        if(frameValid &&keyframeKeyPointsMap.count(currentKeyFrame->mnId))
-        {
-            map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
-
-//            for(auto &kpit : keyPoints1)
-//            {
-//                RcKeyPoint &kp1 = kpit.second;
-//                kp1.tho = 1.0f / kp1.mDepth;
-//                kp1.sigma = initVarienceFactor/(1.0 - initVarienceFactor) * kp1.mDepth;
-//                kp1.intraCheckCount  = 1;
-//                kp1.fused = true;
-//            }
-
-            CreateNewMapPoints(currentKeyFrame);
-
-            fuseHypo(currentKeyFrame);
-
-            intraKeyFrameChecking(currentKeyFrame);
         }
 
         while(interKeyFrameCheckingStack.size() > (size_t)kN)
