@@ -24,6 +24,7 @@ public:
         STOPPED
     };
 
+    //TODO add mb prefix
     bool realTimeReconstructionEnd = false;
 
     // cached camera params
@@ -121,7 +122,7 @@ public:
             int index = 0;
             for(int i=0;i<360;i+=45)
             {
-                if(abs(angle-i) < 22.5)
+                if(abs(angle-i) <= 22.5)
                 {
                     break;
                 }
@@ -154,7 +155,7 @@ public:
     {
         bool operator()(cv::Point2f const&lhs, cv::Point2f const& rhs) const
         {
-            return lhs.x == rhs.x ? lhs.y < rhs.y : lhs.x < rhs.x;
+            return (lhs.x == rhs.x) ? (lhs.y < rhs.y) : (lhs.x < rhs.x);
         }
     };
 
@@ -209,18 +210,19 @@ public:
     void CreateNewMapPoints(KeyFrame* currentKeyFrame);
 
     void highGradientAreaKeyPoints(cv::Mat &gradient, cv::Mat &orientation, KeyFrame *pKF, const float gradientThreshold);
-    void getApproximateOctave(KeyFrame *pKF,std::map<int,pair<float, float>> &octaveDepthMap);
+    //void getApproximateOctave(KeyFrame *pKF,std::map<int,pair<float, float>> &octaveDepthMap);
 
     cv::Mat UnprojectStereo(RcKeyPoint &p,KeyFrame *pKF);
     cv::Mat ComputeF12(KeyFrame *pKF1, KeyFrame *pKF2);
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
     void epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12, vector<pair<size_t,size_t> > &vMatchedIndices);
+    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, map<cv::Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
     bool calCordBounds(cv::Point2f &startCordRef, cv::Point2f &endCordRef, float width, float height, float a, float b,float c);
-    float checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation, KeyFrame *pKF2);
+    float checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation);
     float calInverseDepthEstimation(RcKeyPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2);
-    bool CheckDistEpipolarLine(RcKeyPoint& kp1,RcKeyPoint& kp2,cv::Mat &F12,KeyFrame* pKF2);
+    //bool CheckDistEpipolarLine(RcKeyPoint& kp1,RcKeyPoint& kp2,cv::Mat &F12,KeyFrame* pKF2);
     float calcMedianRotation(KeyFrame* pKF1, KeyFrame* pKF2);
-    float calcInPlaneRotation(KeyFrame* pKF1, KeyFrame* pKF2);
+    //float calcInPlaneRotation(KeyFrame* pKF1, KeyFrame* pKF2);
     void calcSenceInverseDepthBounds(KeyFrame* pKF, float &tho0, float &sigma0);
     bool cordInImageBounds(float x, float y, int width, int height);
 

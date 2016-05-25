@@ -14,6 +14,8 @@ namespace ORB_SLAM2
 {
 float errorTolerenceFactor,initVarienceFactor,depthGradientThres = 255.0;
 bool measuredDepthConstraient = true;
+bool needRectify = false;
+float baselineThres;
 MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
 		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
 {
@@ -58,6 +60,8 @@ MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabula
     initVarienceFactor = fSettings["ReConstruction.initVarienceFactor"];
     measuredDepthConstraient = ((int)fSettings["ReConstruction.disableMeasuredDepthConstraient"] ==0);
     depthGradientThres = fSettings["ReConstruction.depthGradientThres"];
+    needRectify = ((int)fSettings["ReConstruction.rectify"]==1);
+    baselineThres = fSettings["ReConstruction.baselineThres"];
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -101,10 +105,10 @@ void MapReconstructor::RunToProcessKeyFrameQueue()
 
         // Release or never release the images?
 
-//        currentKeyFrame->mRefImgGray.refcount = 0;
-//        currentKeyFrame->mRefImgGray.release();
-//        currentKeyFrame->mRefImgDepth.refcount = 0;
-//        currentKeyFrame->mRefImgDepth.release();
+        currentKeyFrame->mRefImgGray.refcount = 0;
+        currentKeyFrame->mRefImgGray.release();
+        currentKeyFrame->mRefImgDepth.refcount = 0;
+        currentKeyFrame->mRefImgDepth.release();
 
 		{
 			// Add to the second queue for the real-time map reconstruction
@@ -153,6 +157,8 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
 void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation, KeyFrame *pKF, const float gradientThreshold){
     Mat &image = pKF->mRefImgGray;
     Mat &depths = pKF->mRefImgDepth;
+
+//    GaussianBlur( depths, depths, Size(3,3), 0, 0, BORDER_DEFAULT );
 
     map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
 
@@ -274,7 +280,6 @@ void MapReconstructor::RunToReconstructMap()
 
         if(frameValid &&keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
-
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
@@ -282,7 +287,7 @@ void MapReconstructor::RunToReconstructMap()
             intraKeyFrameChecking(currentKeyFrame);
         }
 
-        while((int)interKeyFrameCheckingStack.size() > kN)
+        while(interKeyFrameCheckingStack.size() > (size_t)kN)
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
             if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
@@ -314,7 +319,7 @@ bool MapReconstructor::CheckNewKeyFrames(KeyFrame* currentKeyFrame)
 {
 //    const vector<KeyFrame*> vpNeighKFs = currentKeyFrame->GetBestCovisibilityKeyFrames(kN);
 //    return (int)vpNeighKFs.size() >= kN;
-    return (int)mlpKFQueueForReonstruction.size() > 10;
+    return mlpKFQueueForReonstruction.size() > (size_t)10;
 }
 
 void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
@@ -349,8 +354,10 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
         const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
         const float ratioBaselineDepth = baseline/medianDepthKF2;
 
-        if(ratioBaselineDepth<0.01)
+        if(ratioBaselineDepth<baselineThres)
+        {
             continue;
+        }
 
         // Compute Fundamental Matrix
         cv::Mat F12 = ComputeF12(mpCurrentKeyFrame, pKF2);
@@ -397,17 +404,16 @@ cv::Mat MapReconstructor::SkewSymmetricMatrix(const cv::Mat &v)
 
 void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12,vector<pair<size_t,size_t> > &vMatchedIndices)
 {
-    // get rotation (j - i) and
+    // get rotation (j - i)
     cv::Mat R1w = pKF1->GetRotation();
     cv::Mat t1w = pKF1->GetTranslation();
-    cv::Mat Rwc1 = R1w.t();
     cv::Mat R2w = pKF2->GetRotation();
     cv::Mat t2w = pKF2->GetTranslation();
-    cv::Mat Rwc2 = R2w.t();
 
     cv::Mat R21 = R2w*R1w.t();
     cv::Mat t21 = -R2w*R1w.t()*t1w+t2w;
 
+    // R-t params on each axis
     cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
     cv::Mat rjix = (cv::Mat_<float>(1,3) << R21.at<float>(0,0), R21.at<float>(0,1), R21.at<float>(0,2));
     cv::Mat rjiy = (cv::Mat_<float>(1,3) << R21.at<float>(1,0), R21.at<float>(1,1), R21.at<float>(1,2));
@@ -421,13 +427,13 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
     map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
 
+    // get median rotation between KFs
     float medianRotation = calcMedianRotation(pKF1,pKF2);
 
     // inverse depth of sense
     float tho0, sigma0;
     calcSenceInverseDepthBounds(pKF1, tho0, sigma0);
-//    sigma0 /= 2; //DEBUG
-    cout<<"median dep"<< tho0<<" "<<sigma0<<" mro "<<medianRotation<<endl;
+    cout<<"median dep tho(1/d): "<< tho0<<" sigma: "<<sigma0<<" median rotation "<<medianRotation<<endl;
 
     // search for each point in first image
     for(auto &kpit : keyPoints1)
@@ -438,20 +444,28 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float intensity1 = kp1.intensity;
         float gradient1 = kp1.gradient;
 
-        float minSimilarityError = -1.0;
         Point2f matchedCord;
 
-        // undistort
-        cv::Mat mat(1,2,CV_32F);
-        mat.at<float>(0,0)=kp1.pt.x;
-        mat.at<float>(0,1)=kp1.pt.y;
+        float xudist, yudist;
+        if(needRectify)
+        {
+            // undistort
+            cv::Mat mat(1,2,CV_32F);
+            mat.at<float>(0,0)=kp1.pt.x;
+            mat.at<float>(0,1)=kp1.pt.y;
 
-        mat=mat.reshape(2);
-        cv::undistortPoints(mat,mat,pKF1->mK,mDistCoef,cv::Mat(), pKF1->mK);
-        mat=mat.reshape(1);
+            mat=mat.reshape(2);
+            cv::undistortPoints(mat,mat,pKF1->mK,mDistCoef,cv::Mat(), pKF1->mK);
+            mat=mat.reshape(1);
 
-        float xudist=mat.at<float>(0,0);
-        float yudist=mat.at<float>(0,1);
+            xudist=mat.at<float>(0,0);
+            yudist=mat.at<float>(0,1);
+        }
+        else
+        {
+            xudist = kp1.pt.x;
+            yudist = kp1.pt.y;
+        }
 
         // epipolar line params
         const float a = xudist*F12.at<float>(0,0)+yudist*F12.at<float>(1,0)+F12.at<float>(2,0);
@@ -463,171 +477,30 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             continue;
         }
 
-        // Xba(p) = K.inv() * xp
-        cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
-//        cv::Mat xp = (cv::Mat_<float>(1,3) << kp1.pt.x, kp1.pt.y, 1.0);
-//        cv::Mat xp1 = pKF1->mK.inv() * xp.t();
-
         float sigmaEst = sigma0;
-////////////////////////
+
+        // relocalize search area under depth estimate
+        ////////////////////////
         if(measuredDepthConstraient)
         {
             tho0 = 1.0/kp1.mDepth;
             sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
         }
-////////////////////////
-        float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
-//        float u0, u1, v0, v1, up, vp;
+        ////////////////////////
 
-//        float thoMax = tho0 + 2*sigma0, thoMin = tho0 - 2*sigma0;
+        // inverse depth bounds
+        float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
+
+        // unary ray through xp : Xba(p) = K.inv() * xp
+        cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
+        // bounds of x axis
         float u0 = pKF1->cx + (rjix.dot(xp1) + thoMax * tjix) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fx;
         float u1 = pKF1->cx + (rjix.dot(xp1) + thoMin * tjix) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fx;
+        // bounds of y axis
         float v0 = pKF1->cy + (rjiy.dot(xp1) + thoMax * tjiy) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fy;
         float v1 = pKF1->cy + (rjiy.dot(xp1) + thoMin * tjiy) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fy;
 
-//        float up = pKF1->cx + (rjix.dot(xp1) + tho0 * tjix) / (rjiz.dot(xp1) + tho0*tjiz) * pKF1->fx;
-
-        ////////////////////////
-        /// \brief minU
-        ///
-//        float lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2,ofu,ofv;
-//        bool valid = getSearchAreaForWorld3DPointInKF( pKF1, pKF2, kp1,lowerBoundXInKF2, lowerBoundYInKF2, upperBoundXInKF2, upperBoundYInKF2,ofu,ofv );
-//        float diffU = upperBoundXInKF2 - lowerBoundXInKF2;
-//        float diffV = upperBoundYInKF2 - lowerBoundYInKF2;
-//        lowerBoundXInKF2 +=diffU/4.0;
-//        lowerBoundYInKF2 +=diffV/4.0;
-//        upperBoundXInKF2 -=diffU/4.0;
-//        upperBoundYInKF2 -=diffV/4.0;
-//        if(!valid) continue;
-//        u0=lowerBoundXInKF2;
-//        u1=upperBoundXInKF2;
-//        float v0 = lowerBoundYInKF2, v1=upperBoundYInKF2;
-        ///
-        /// ////////////////////
-
-//        if(fabs(u0 - u1) < 0.1) continue;
-
-        float minU = min(u0, u1), maxU = max(u0, u1);
-        float minV = 0, maxV = 0;
-//        cout<<"proj bound of u "<<minU<<", "<<maxU<<endl;
-
-        float offset = epipolarSearchOffset, dx, dy;
-        float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
-        float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
-
-        bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
-
-        Point2f startCord;
-        Point2f endCord;
-        if(parralexWithYAxis)
-        {
-            minV = 0;
-            maxV = height;
-            //////
-            ///
-//            minV = lowerBoundYInKF2;
-//            maxV = upperBoundYInKF2;
-                        minV = min(v0,v1);
-                        maxV = max(v0,v1);
-            ///
-            //////
-            startCord.x = minU;
-            startCord.y = minV;
-            dx = 1.0;
-            dy = 0;
-        }
-        else
-        {
-            startCord.x = minU;
-            startCord.y = -(c + a * minU) / b;
-            minV = maxV = startCord.y;
-            dx = 1.0;
-            dy = -a / b;
-        }
-//        cout<<"init p "<<startCord<<endl;
-
-        if(!cordInImageBounds(startCord.x,startCord.y,width,height))
-        {
-            bool bounds = calCordBounds(startCord, endCord, width, height, a, b, c);
-            //cout<<"bounds p "<<startCord<<endCord<<endl;
-            if(!bounds)
-            {
-//                cout<<"out of bound "<<endl;
-                continue;
-            }
-            else
-            {
-                minU = max(startCord.x, minU);
-                maxU = min(maxU, endCord.x);
-                if(!parralexWithYAxis)
-                {
-                    minV = -(c + a * minU) / b;
-                    maxV = -(c + a * minU) / b;
-                }
-            }
-        }
-
-        minU -= offsetU;
-        maxU += offsetU;
-        minV -= offsetV;
-        maxV += offsetV;
-        startCord.x = minU;
-        startCord.y = minV;
-
-//        cout<<"start "<<startCord<<endl;
-//                cout<<"a: "<<a<<" b: "<<b<<" c: "<<c<<endl;
-//        cout<<"minU "<<minU<<endl;
-//        cout<<"maxU "<<maxU<<endl;
-//        cout<<"maxV "<<maxV<<endl;
-//        cout<<"minV "<<minV<<endl;
-//        cout<<"offsetU "<<offsetU<<endl;
-//        cout<<"offsetV "<<offsetV<<endl;
-//        cout<<"dx "<<dx<<"dy "<<dy<<endl;
-//        cout<<"startCord.x < (maxU + 1.0) "<<(startCord.x < (maxU + 1.0))<<endl;
-//        cout<<"dmax: "<<dmax<<" dmin: "<<dmin<<" sigma0: "<<sigma0<<endl;
-//        cout<<"u0: "<<u0<<" u1: "<<u1<<" v0: "<<v0<<" v1: "<<v1<<endl;
-//        cout<<"tho0: "<<tho0<<" thomax: "<<thoMax<<" thomin: "<<thoMin<<endl;
-//        cout<<"u0 "<<u0<<" v0 "<<v0<<" up "<<up<<" vp "<<vp<<" u1 "<<u1<<" v1 "<<v1<<endl;
-
-        Point2f cordP;
-        while(startCord.x < (maxU + 1.0))
-        {
-            float x = startCord.x, y = startCord.y;
-//            cout<< "stx "<<startCord<<endl;
-            while(y<(maxV + 1.0))
-            {
-//               cordP.x = floor(x);
-//               cordP.y= floor(y);
-                Point2f disp = Point2f(x,y);
-                Distort(disp, pKF2);
-                cordP.x = round(disp.x);
-                cordP.y= round(disp.y);
-//               cout<< "stP "<<cordP<<endl;
-                if(keyPoints2.count(cordP))
-                {
-                    RcKeyPoint &kp2 = keyPoints2.at(cordP);
-                    //if(!kp2.fused)
-                    //{
-                        float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation,pKF2);
-
-                        // update the best match point
-                        if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
-                            minSimilarityError = similarityError;
-                            matchedCord = Point2f(cordP.x, cordP.y);
-                        }
-                    //}
-                }
-
-                y += 1.0;
-            }
-
-            startCord.x += dx;
-            startCord.y += dy;
-            if(!parralexWithYAxis)
-            {
-                maxV += dy;
-            }
-        }
+        float minSimilarityError = MatchAlongEpipolarLine(matchedCord, kp1, keyPoints2, medianRotation, u0, u1, v0, v1, a, b, c);
 
         // use the best match point to estimate the distribution
         if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
@@ -637,9 +510,9 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             // subpixel estimation:
             // approximate intensity gradient along epipolar line : g=(I(uj + 1)-I(uj - 1))/2;
             // approximate intensity gradient module derivate along epipolar line : q=(G(uj + 1)-G(uj - 1))/2;
-            // pixel estimation:
-            // u0s = u0 + (g(u0)*ri(u0) + 1/theta * q(u0) * rg(u0)) / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0) )
-            // su0s^2 = 2* si*si / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0))
+            // sub pixel estimation:
+            // u0star = u0 + (g(u0)*ri(u0) + 1/theta * q(u0) * rg(u0)) / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0) )
+            // sigmau0star^2 = 2* si*si / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0))
             float u0 = match.pt.x;
 
             // neighbour info of this point
@@ -660,18 +533,15 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             // subpixel estimation of u0
             float errorSquare = (g*g + 1.0/theta *q*q);
             float leftPart = (g * intensityError + 1.0 / theta * q * gradientError ) / errorSquare;
-            if(leftPart>1)
+            if(fabs(leftPart)>1)
             {
-//                cout<<"left part two large "<<leftPart<<", devide "<< errorSquare<<endl;
                 leftPart = 0;
                 errorSquare = max(initVarienceFactor, errorSquare);
-//                continue;
             }
             float u0Star = u0 + leftPart;
             float sigmaU0Star = sqrt( 2.0 * sigmaI * sigmaI /errorSquare );
 
             // inverse depth hypothese
-//            float rho = calInverseDepthEstimation(kp1, u0Star, pKF1, pKF2);
             float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Star-pKF1->cx) + pKF1->fx * tjix );
             if(isnan(rho)){
                 continue;
@@ -682,10 +552,115 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
             float sigmaRho = max(fabs(rhoUpper - rho),fabs(rhoLower - rho));
 
-//            cout<<"add hypo"<<(1.0/rho)<<" xp* "<<u0Star<<" "<<v0Star<<endl;
             kp1.addHypo(rho, sigmaRho,&match);
         }
     }
+}
+
+float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
+{
+    float minSimilarityError = -1;
+    float minU = min(u0, u1), maxU = max(u0, u1);
+    float minV = 0, maxV = 0;
+
+    float offset = epipolarSearchOffset, dx, dy;
+    float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
+    float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
+
+    bool parralexWithYAxis = (b==0 || fabs(-a / b) > (float)(height/(2*offset)));
+
+    Point2f startCord;
+    Point2f endCord;
+    if(parralexWithYAxis)
+    {
+
+        minV = min(v0,v1);
+        maxV = max(v0,v1);
+        startCord.x = minU;
+        startCord.y = minV;
+        dx = 1.0;
+        dy = 0;
+    }
+    else
+    {
+        startCord.x = minU;
+        startCord.y = -(c + a * minU) / b;
+        minV = maxV = startCord.y;
+        dx = 1.0;
+        dy = -a / b;
+    }
+
+    if(!cordInImageBounds(startCord.x,startCord.y,width,height))
+    {
+        bool bounds = calCordBounds(startCord, endCord, width, height, a, b, c);
+        if(!bounds)
+        {
+            return minSimilarityError;
+        }
+        else
+        {
+            minU = max(startCord.x, minU);
+            maxU = min(maxU, endCord.x);
+            if(!parralexWithYAxis)
+            {
+                minV = -(c + a * minU) / b;
+                maxV = -(c + a * minU) / b;
+            }
+            else
+            {
+                minV = max(min(startCord.y,endCord.y), minV);
+                maxV = min(max(startCord.y,endCord.y), minV);
+            }
+        }
+    }
+
+    minU -= offsetU;
+    maxU += offsetU;
+    minV -= offsetV;
+    maxV += offsetV;
+    startCord.x = minU;
+    startCord.y = minV;
+
+    Point2f cordP;
+    while(startCord.x < (maxU + 1.0))
+    {
+        float x = startCord.x, y = startCord.y;
+        while(y<(maxV + 1.0))
+        {
+            Point2f disp = Point2f(x,y);
+//            if(needRectify)
+//            {
+//                Distort(disp, pKF2);
+//            }
+            cordP.x = round(disp.x);
+            cordP.y= round(disp.y);
+            if(keyPoints2.count(cordP))
+            {
+                RcKeyPoint &kp2 = keyPoints2.at(cordP);
+                //if(!kp2.fused)
+                //{
+                float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation);
+
+                // update the best match point
+                if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
+                    minSimilarityError = similarityError;
+                    matchedCord.x = cordP.x;
+                    matchedCord.y = cordP.y;
+                }
+                //}
+            }
+
+            y += 1.0;
+        }
+
+        startCord.x += dx;
+        startCord.y += dy;
+        if(!parralexWithYAxis)
+        {
+            maxV += dy;
+        }
+    }
+    return minSimilarityError;
 }
 
 void MapReconstructor::Distort(Point2f &point, KeyFrame* pKF)
@@ -910,7 +885,7 @@ bool MapReconstructor::calCordBounds(Point2f &startCordRef, Point2f &endCordRef,
     return true;
 }
 
-float MapReconstructor::checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation, KeyFrame *pKF2)
+float MapReconstructor::checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation)
 {
     float similarityError = -1.0;
     // prepare data
@@ -1259,8 +1234,10 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
         const float medianDepthKF2 = pKF2->ComputeSceneMedianDepth(2);
         const float ratioBaselineDepth = baseline/medianDepthKF2;
 
-        if(ratioBaselineDepth<0.01)
+        if(ratioBaselineDepth<baselineThres)
+        {
             continue;
+        }
 
         cv::Mat R2w = pKF2->GetRotation();
         cv::Mat t2w = pKF2->GetTranslation();
@@ -1288,17 +1265,26 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
 
             float tho1 = kp1.tho;
 
-            // undistort
-            cv::Mat mat(1,2,CV_32F);
-            mat.at<float>(0,0)=kp1.pt.x;
-            mat.at<float>(0,1)=kp1.pt.y;
+            float x, y;
+            if(needRectify)
+            {
+                // undistort
+                cv::Mat mat(1,2,CV_32F);
+                mat.at<float>(0,0)=kp1.pt.x;
+                mat.at<float>(0,1)=kp1.pt.y;
 
-            mat=mat.reshape(2);
-            cv::undistortPoints(mat,mat,pKF->mK,mDistCoef,cv::Mat(), pKF->mK);
-            mat=mat.reshape(1);
+                mat=mat.reshape(2);
+                cv::undistortPoints(mat,mat,pKF->mK,mDistCoef,cv::Mat(), pKF->mK);
+                mat=mat.reshape(1);
 
-            float x=mat.at<float>(0,0);
-            float y=mat.at<float>(0,1);
+                x=mat.at<float>(0,0);
+                y=mat.at<float>(0,1);
+            }
+            else
+            {
+                x = kp1.pt.x;
+                y = kp1.pt.y;
+            }
 
             // Xba(p) = K.inv() * xp
             cv::Mat xp1 = (cv::Mat_<float>(1,3) << (x-pKF->cx)*pKF->invfx, (y-pKF->cy)*pKF->invfy, 1.0);
@@ -1318,7 +1304,10 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
             // check neighbours
             float uj = xj.at<float>(0) / xj.at<float>(2), vj = xj.at<float>(1) / xj.at<float>(2);
             Point2f disp = Point2f(uj, vj);
-            Distort(disp, pKF2);
+            if(needRectify)
+            {
+                Distort(disp, pKF2);
+            }
             uj = disp.x;
             vj = disp.y;
 
@@ -1340,7 +1329,6 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
                         // Ka test
                         if((tho2 - tho2n) * (tho2 - tho2n) / sigma2nSquare < 3.84)
                         {
-                            kp1.interCheckCount++;
                             validPoints.push_back(kp1);
 
                             // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquar
@@ -1379,6 +1367,7 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
     {
 //        cout<<"vkp.interCheckCount "<<vkp.interCheckCount<<endl;
         int count = (int)depthErrorKeyframes.at(vkp.pt).size();
+        vkp.interCheckCount = count;
         if(count > lambdaN)
         {
             vector<vector<float>> &params = depthErrorEstimateFactors.at(vkp.pt);
@@ -1394,7 +1383,7 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
 
 void MapReconstructor::addKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
 {
-    if(kp1.fused){
+    if(kp1.intraCheckCount && kp1.interCheckCount){
 
         const float zh = 1.0/kp1.tho;
         float error = fabs(kp1.mDepth-zh);
