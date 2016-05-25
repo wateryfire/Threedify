@@ -8,7 +8,13 @@
 #ifndef INCLUDE_MAPRECONSTRUCTOR_H_
 #define INCLUDE_MAPRECONSTRUCTOR_H_
 
-#include "System.h"
+#include<string>
+#include<thread>
+#include<mutex>
+#include<unistd.h>
+#include<opencv2/core/core.hpp>
+
+#include "Map.h"
 
 namespace ORB_SLAM2
 {
@@ -161,7 +167,7 @@ public:
 
 public:
 
-    MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker, const string & strSettingsFile);
+    MapReconstructor(Map* pMap, const string & strSettingsFile);
 
 	//Add a new key frame into the queue to be processed
 	void InsertKeyFrame(KeyFrame *pKeyFrame);
@@ -240,9 +246,6 @@ private:
 	void ExtractEdgeProfile(KeyFrame *pKeyFrame);
 
     Map* mpMap;
-    KeyFrameDatabase* mpKeyFrameDB;
-    ORBVocabulary* mpORBVocabulary;
-    Tracking* mpTracker;
 
     std::list<KeyFrame*> mlpKeyFrameQueue;
     std::mutex mMutexForKeyFrameQueue;

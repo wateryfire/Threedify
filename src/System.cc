@@ -105,7 +105,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
 
     //Initialize the Map Reconstruction threads and launch
-    mpMapReconstructor = new MapReconstructor(mpMap, mpKeyFrameDatabase, mpVocabulary, mpTracker, strSettingsFile);
+    mpMapReconstructor = new MapReconstructor(mpMap, strSettingsFile);
 
     mptMapReconstructorDequeue = new thread(&ORB_SLAM2::MapReconstructor::RunToProcessKeyFrameQueue, mpMapReconstructor);
     mpMapReconstructor->StartKeyFrameQueueProcess();

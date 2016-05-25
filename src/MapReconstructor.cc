@@ -16,8 +16,8 @@ float errorTolerenceFactor,initVarienceFactor,depthGradientThres = 255.0;
 bool measuredDepthConstraient = true;
 bool needRectify = false;
 float baselineThres;
-MapReconstructor::MapReconstructor(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, Tracking* pTracker,  const string &strSettingPath):
-		mpMap(pMap), mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpTracker(pTracker)
+MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
+        mpMap(pMap)
 {
 	mStatus_KeyFrameQueueProcess=INITIALIZED;
 	mStatus_RealTimeMapReconstruction=INITIALIZED;
@@ -280,7 +280,7 @@ void MapReconstructor::RunToReconstructMap()
 
         if(frameValid &&keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
-//            map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
+            map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
 
 //            for(auto &kpit : keyPoints1)
 //            {
@@ -299,6 +299,7 @@ void MapReconstructor::RunToReconstructMap()
         }
 
         while(interKeyFrameCheckingStack.size() > (size_t)kN)
+//        while(interKeyFrameCheckingStack.size() > 0)
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
             if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
@@ -1188,7 +1189,11 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
             {
                 // check index
                 sort(matchedIndexes.begin(), matchedIndexes.end());
-                if(abs(matchedIndexes.back() - matchedIndexes.front()) < 3) continue;
+                int qDiff  =abs(matchedIndexes.back() - matchedIndexes.front());
+                if(qDiff < 3 || qDiff > 5)
+                {
+                    continue;
+                }
                 kp1.fused = true;
                 kp1.tho = tho;
                 kp1.sigma = sigma;
@@ -1371,6 +1376,7 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(p);
                     if(kp2.fused)
+//                    if(kp2.fused && !(kp2.interCheckCount > lambdaN))
                     {
                         float tho2n = kp2.tho;
                         float sigma2nSquare = kp2.sigma * kp2.sigma;
