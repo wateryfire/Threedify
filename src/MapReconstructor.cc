@@ -280,6 +280,17 @@ void MapReconstructor::RunToReconstructMap()
 
         if(frameValid &&keyframeKeyPointsMap.count(currentKeyFrame->mnId))
         {
+//            map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
+
+//            for(auto &kpit : keyPoints1)
+//            {
+//                RcKeyPoint &kp1 = kpit.second;
+//                kp1.tho = 1.0f / kp1.mDepth;
+//                kp1.sigma = initVarienceFactor/(1.0 - initVarienceFactor) * kp1.mDepth;
+//                kp1.intraCheckCount  = 1;
+//                kp1.fused = true;
+//            }
+
             CreateNewMapPoints(currentKeyFrame);
 
             fuseHypo(currentKeyFrame);
@@ -969,7 +980,16 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
 
             KeyPoint kp1 = mvKeys1[idx1];
             KeyPoint kp2 = mvKeys2[idx2];
-            angles.push_back(kp2.angle - kp1.angle);
+            float angleDiff = kp2.angle - kp1.angle;
+//            while(angleDiff <0.0)
+//            {
+//                angleDiff += 360.0;
+//            }
+//            while(angleDiff >360.0)
+//            {
+//                angleDiff -= 360.0;
+//            }
+            angles.push_back(angleDiff);
 //            Point2f c1 = Point2f(kp1.pt.x, kp1.pt.y);
 //            Point2f c2 = Point2f(kp2.pt.x, kp2.pt.y);
 //            if(keyPoints1.count(c1) && keyPoints2.count(c2))
@@ -989,15 +1009,44 @@ float MapReconstructor::calcMedianRotation(KeyFrame* pKF1,KeyFrame* pKF2)
 
     sort(angles.begin(), angles.end());
 
-    if (size  % 2 == 0)
+    // quadrant denoise
+    int quadrant = 6;
+    float halfQuadrantSize = 180.0 / quadrant;
+    size_t upper = size - 1, lower = 0;
+    float diff = 180.0;
+
+    while(diff > halfQuadrantSize)
     {
-        median = (angles[size / 2 - 1] + angles[size / 2]) / 2;
+        if (size  % 2 == 0)
+        {
+            median = (angles[(upper + lower + 1) / 2 - 1] + angles[(upper + lower + 1) / 2]) / 2;
+        }
+        else
+        {
+            median = angles[(upper + lower + 1) / 2];
+        }
+
+        float diffU = angles[upper] - median, diffL = angles[lower] - median;
+        if(fabs(diffU) > fabs(diffL))
+        {
+            upper --;
+            diff = diffU;
+        }
+        else
+        {
+            lower --;
+            diff = diffL;
+        }
+        size --;
+
+        if(size < (size_t)quadrant)
+        {
+            break;
+        }
     }
-    else
+
+    if(median>360.0)
     {
-        median = angles[size / 2];
-    }
-    if(median>360.0){
         cout<<"invalid median rotation"<<endl;
         for(float diff:angles)
         {
