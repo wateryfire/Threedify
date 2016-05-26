@@ -222,7 +222,8 @@ public:
     cv::Mat ComputeF12(KeyFrame *pKF1, KeyFrame *pKF2);
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
     void epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12, vector<pair<size_t,size_t> > &vMatchedIndices);
-    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, map<cv::Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
+//    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, map<cv::Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
+    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, cv::SparseMat_<RcKeyPoint*> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
     bool calCordBounds(cv::Point2f &startCordRef, cv::Point2f &endCordRef, float width, float height, float a, float b,float c);
     float checkEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation);
     float calInverseDepthEstimation(RcKeyPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2);

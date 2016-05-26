@@ -79,8 +79,8 @@ Viewer.ViewpointF: 500
 #--------------------------------------------------------------------------------------------
 # Re-construction Parameters
 #--------------------------------------------------------------------------------------------
-ReConstruction.KN: 3
-ReConstruction.lambdaN: 1
+ReConstruction.KN: 7
+ReConstruction.lambdaN: 3
 ReConstruction.sigmaI: 20.0
 ReConstruction.lambdaG: 20.0
 ReConstruction.lambdaL: 80.0

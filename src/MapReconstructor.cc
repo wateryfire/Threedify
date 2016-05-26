@@ -16,6 +16,9 @@ float errorTolerenceFactor,initVarienceFactor,depthGradientThres = 255.0;
 bool measuredDepthConstraient = true;
 bool needRectify = false;
 float baselineThres;
+
+map<size_t, SparseMat_<MapReconstructor::RcKeyPoint*> > keyframeKeyPointsMat;
+
 MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
         mpMap(pMap)
 {
@@ -194,7 +197,10 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 
 //    GaussianBlur( depths, depths, Size(3,3), 0, 0, BORDER_DEFAULT );
 
-    map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
+//    map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
+    int dims = 2;
+    int size[] = {height, width};
+    SparseMat_<RcKeyPoint*> keyPoints = SparseMat_<RcKeyPoint*>(dims, size);
 
     for(int row = 0; row < image.rows; ++row) {
         uchar* p = image.ptr<uchar>(row);
@@ -229,12 +235,12 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
             float angle = orientation.at<float>(cord);
 //            int &intensity = image.at<int>(cord);
 //            cout<<"intensity "<<saturate_cast<float>(intensity)<<" angle "<<angle<<" gradientModulo "<<saturate_cast<float>(gradientModulo)<<endl;
-            RcKeyPoint hgkp(col, row,intensity,gradientModulo,angle,0,depth);
+            RcKeyPoint *hgkp = new RcKeyPoint(col, row,intensity,gradientModulo,angle,0,depth);
 
             // fill neighbour info
 //            hgkp.fetchNeighbours(image, gradient);
             vector<Point2f> neighbours;
-            hgkp.eachNeighbourCords([&](cv::Point2f ptn){
+            hgkp->eachNeighbourCords([&](cv::Point2f ptn){
                 neighbours.push_back(ptn);
             });
             for(Point2f &pt: neighbours)
@@ -244,7 +250,7 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
                 msg.push_back(nIntensity);
                 msg.push_back(nGradientModulo);
 //                cout<<"neighbour "<<"intensity "<<msg[0]<<" gradientModulo "<<msg[1]<<endl;
-                hgkp.neighbours.push_back(msg);
+                hgkp->neighbours.push_back(msg);
             }
 
             // undistort
@@ -259,10 +265,12 @@ void MapReconstructor::highGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 //            hgkp.ptu.x=mat.at<float>(0,0);
 //            hgkp.ptu.y=mat.at<float>(0,1);
 
-            keyPoints[cord] = hgkp;
+//            keyPoints[cord] = hgkp;
+            keyPoints.ref(row, col) = hgkp;
         }
     }
-    keyframeKeyPointsMap[pKF->mnId] = keyPoints;
+//    keyframeKeyPointsMap[pKF->mnId] = keyPoints;
+    keyframeKeyPointsMat[pKF->mnId] = keyPoints;
 }
 
 void MapReconstructor::RunToReconstructMap()
@@ -295,7 +303,8 @@ void MapReconstructor::RunToReconstructMap()
         cout << "MapReconstructor: Reconstructing map from the key frame (FrameId: " << currentKeyFrame->mnId << ")." << endl;
 
         bool frameValid = (mlpKFQueueForReonstruction.size() > (size_t)10);
-        if (frameValid || !keyframeKeyPointsMap.count(currentKeyFrame->mnId))
+//        if (frameValid || !keyframeKeyPointsMap.count(currentKeyFrame->mnId))
+        if (frameValid || !keyframeKeyPointsMat.count(currentKeyFrame->mnId))
         {
             //Get Mutex-lock to access the queue of key frames.
             {
@@ -305,9 +314,10 @@ void MapReconstructor::RunToReconstructMap()
             }
             retryCount=0;
 
-            if(keyframeKeyPointsMap.count(currentKeyFrame->mnId))
+//            if(keyframeKeyPointsMap.count(currentKeyFrame->mnId))
+            if(keyframeKeyPointsMat.count(currentKeyFrame->mnId))
             {
-                map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
+//                map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
 
     //            for(auto &kpit : keyPoints1)
     //            {
@@ -336,7 +346,8 @@ void MapReconstructor::RunToReconstructMap()
 //        while(interKeyFrameCheckingStack.size() > 0)
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
-            if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
+//            if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
+            if(keyframeKeyPointsMat.count(currentKeyFrameInterChecking->mnId))
             {
                 interKeyFrameChecking(currentKeyFrameInterChecking);
             }
@@ -387,7 +398,9 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
         // Search matches that fullfil epipolar constraint
         vector<pair<size_t,size_t> > vMatchedIndices;
         long mnid2 = pKF2->mnId;
-        if(!keyframeKeyPointsMap.count(mnid2)){
+//        if(!keyframeKeyPointsMap.count(mnid2))
+        if(!keyframeKeyPointsMat.count(mnid2))
+        {
             cout << "keyframe data not extracted yet: " << mnid2 << endl;
             continue;
         }
@@ -470,8 +483,10 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     // high gradient area points
     const long mnid1 = pKF1->mnId, mnid2 = pKF2->mnId;
     cout<<"epipcolar constraient search between "<<mnid1<<" "<<mnid2<<endl;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+//    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
+//    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+    SparseMat_<RcKeyPoint*> &keyPoints1 = keyframeKeyPointsMat.at(mnid1);
+    SparseMat_<RcKeyPoint*> &keyPoints2 = keyframeKeyPointsMat.at(mnid2);
 
     // get median rotation between KFs
     float medianRotation = calcMedianRotation(pKF1,pKF2);
@@ -482,9 +497,15 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     cout<<"median dep tho(1/d): "<< tho0<<" sigma: "<<sigma0<<" median rotation "<<medianRotation<<endl;
 
     // search for each point in first image
-    for(auto &kpit : keyPoints1)
+//    for(auto &kpit : keyPoints1)
+    SparseMatIterator_<RcKeyPoint*>
+        it = keyPoints1.begin(),
+        it_end = keyPoints1.end();
+    for(; it != it_end; ++it)
     {
-        RcKeyPoint &kp1 = kpit.second;
+//        RcKeyPoint &kp1 = *(it.ref<RcKeyPoint*>());
+//        RcKeyPoint &kp1 = kpit.second;
+        RcKeyPoint &kp1 = **it;
 
         // prepare data
         float intensity1 = kp1.intensity;
@@ -551,7 +572,8 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         // use the best match point to estimate the distribution
         if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
 
-            RcKeyPoint &match = keyPoints2.at(matchedCord);
+//            RcKeyPoint &match = keyPoints2.at(matchedCord);
+            RcKeyPoint &match = *keyPoints2.ref(matchedCord.y, matchedCord.x);
 
             // subpixel estimation:
             // approximate intensity gradient along epipolar line : g=(I(uj + 1)-I(uj - 1))/2;
@@ -598,12 +620,14 @@ void MapReconstructor::epipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
             float sigmaRho = max(fabs(rhoUpper - rho),fabs(rhoLower - rho));
 
+//            cout<<"addHypo " <<rho << " " << sigmaRho<<endl;
             kp1.addHypo(rho, sigmaRho,&match);
         }
     }
 }
 
-float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
+//float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
+float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, SparseMat_<RcKeyPoint*> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
 {
     float minSimilarityError = -1;
     float minU = min(u0, u1), maxU = max(u0, u1);
@@ -680,9 +704,11 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint 
 //            }
             cordP.x = round(disp.x);
             cordP.y= round(disp.y);
-            if(keyPoints2.count(cordP))
+//            if(keyPoints2.count(cordP))
+            if(keyPoints2.ptr(cordP.y, cordP.x, false)  != NULL)
             {
-                RcKeyPoint &kp2 = keyPoints2.at(cordP);
+//                RcKeyPoint &kp2 = keyPoints2.at(cordP);
+                RcKeyPoint &kp2 = *keyPoints2.ref(cordP.y, cordP.x);
                 //if(!kp2.fused)
                 //{
                 float similarityError = checkEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation);
@@ -1138,11 +1164,21 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
 {
     cout<< "enter fuse"<<endl;
     long kfid = pKF->mnId;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
-    for(auto &kpit : keyPoints)
+//    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
+    SparseMat_<RcKeyPoint*> &keyPoints = keyframeKeyPointsMat.at(kfid);
+//    for(auto &kpit : keyPoints)
+    SparseMatIterator_<RcKeyPoint*>
+        it = keyPoints.begin(),
+        it_end = keyPoints.end();
+    for(; it != it_end; ++it)
     {
-        RcKeyPoint &kp1 = kpit.second;
+//        RcKeyPoint &kp1 = kpit.second;
+//        RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
+        RcKeyPoint &kp1 = **it;
+        if(!kp1.hasHypo) continue;
+//        cout<<(int)kp1.intensity<<endl;
         vector<pair<float, float>> &hypos = kp1.hypotheses;
+//        cout<<(int)hypos.size()<<" "<<hypos.empty()<<endl;
 
         // DEBUG
 //        hypos.push_back(make_pair(1/kp1.mDepth, kp1.mDepth * 0.01));
@@ -1176,11 +1212,20 @@ void MapReconstructor::fuseHypo(KeyFrame* pKF)
 
 void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
 {
+    cout<<"intraKeyFrameChecking "<<endl;
     long kfid = pKF->mnId;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
-    for(auto &kpit : keyPoints)
+//    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
+    SparseMat_<RcKeyPoint*> &keyPoints = keyframeKeyPointsMat.at(kfid);
+    //for(auto &kpit : keyPoints)
+    SparseMatIterator_<RcKeyPoint*>
+        it = keyPoints.begin(),
+        it_end = keyPoints.end();
+    for(; it != it_end; ++it)
     {
-        RcKeyPoint &kp1 = kpit.second;
+//        RcKeyPoint &kp1 = kpit.second;
+//        RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
+        RcKeyPoint &kp1 = **it;
+//        RcKeyPoint &kp1 = kpit.second;
         //check neighbour hypos
         int neighbourHypos = 0;
 
@@ -1189,9 +1234,12 @@ void MapReconstructor::intraKeyFrameChecking(KeyFrame* pKF)
         vector<int> matchedIndexes;
         int index = 0;
         kp1.eachNeighbourCords([&](Point2f pt){
-            if(keyPoints.count(pt))
+//            if(keyPoints.count(pt))
+//            {
+//                RcKeyPoint &kpn = keyPoints.at(pt);
+            if(keyPoints.ptr(pt.y,pt.x,false) !=NULL)
             {
-                RcKeyPoint &kpn = keyPoints.at(pt);
+                RcKeyPoint &kpn = *keyPoints.ref(pt.y,pt.x);
                 if(kpn.fused)
                 {
                     nbrhypos.push_back(make_pair(kpn.tho, kpn.sigma));
@@ -1289,7 +1337,8 @@ int MapReconstructor::KaTestFuse(vector<pair<float, float>> &hypos, float &tho, 
 void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
 {
     cout<<"interKeyFrameChecking" <<endl;
-    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF->mnId);
+//    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF->mnId);
+    SparseMat_<RcKeyPoint*> &keyPoints1 = keyframeKeyPointsMat.at(pKF->mnId);
     int nn = kN;
     nn*=2;
     vector<KeyFrame*> vpNeighKFs = pKF->GetBestCovisibilityKeyFrames(nn);
@@ -1309,7 +1358,9 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
         KeyFrame* pKF2 = vpNeighKFs[i];
 
         long mnid2 = pKF2->mnId;
-        if(!keyframeKeyPointsMap.count(mnid2)){
+//        if(!keyframeKeyPointsMap.count(mnid2))
+        if(!keyframeKeyPointsMat.count(mnid2))
+        {
             cout << "keyframe hypo data not exist: " << mnid2 << endl;
             continue;
         }
@@ -1338,11 +1389,18 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
         cv::Mat rjiz = (cv::Mat_<float>(1,3) << R21.at<float>(2,0), R21.at<float>(2,1), R21.at<float>(2,2));
         float tjiz = t21.at<float>(2);
 
-        map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+//        map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
+        SparseMat_<RcKeyPoint*> &keyPoints2 = keyframeKeyPointsMat.at(mnid2);
 
-        for(auto &kpit : keyPoints1)
+//        for(auto &kpit : keyPoints1)
+        SparseMatIterator_<RcKeyPoint*>
+            it = keyPoints1.begin(),
+            it_end = keyPoints1.end();
+        for(; it != it_end; ++it)
         {
-            RcKeyPoint &kp1 = kpit.second;
+//            RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
+            RcKeyPoint &kp1 = **it;
+//            RcKeyPoint &kp1 = kpit.second;
             vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
             set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
 
@@ -1405,10 +1463,13 @@ void MapReconstructor::interKeyFrameChecking(KeyFrame* pKF)
             neighbours.push_back(Point2f(ceil(uj), floor(vj)));
             neighbours.push_back(Point2f(ceil(uj), ceil(vj)));
             for (const Point2f &p: neighbours)
-            {
+            {/*
                 if(keyPoints2.count(p))
                 {
-                    RcKeyPoint &kp2 = keyPoints2.at(p);
+                    RcKeyPoint &kp2 = keyPoints2.at(p);*/
+                if(keyPoints2.ptr(p.y,p.x,false) != NULL)
+                {
+                    RcKeyPoint &kp2 = *keyPoints2.ref(p.y,p.x);
                     if(kp2.fused)
 //                    if(kp2.fused && !(kp2.interCheckCount > lambdaN))
                     {
