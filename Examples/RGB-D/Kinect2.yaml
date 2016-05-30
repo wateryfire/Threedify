@@ -91,8 +91,8 @@ ReConstruction.disabled: 1
 ReConstruction.maxDepth: 40.0
 ReConstruction.minDepth: 0.2
 ReConstruction.searchOffset: 0.1
-ReConstruction.errorTolerenceFactor: 0.1
-ReConstruction.initVarienceFactor: 0.05
+ReConstruction.errorTolerenceFactor: 0.005
+ReConstruction.initVarienceFactor: 0.01
 ReConstruction.depthGradientThres: 11.0
 ReConstruction.disableMeasuredDepthConstraient: 0
 ReConstruction.rectify: 0
