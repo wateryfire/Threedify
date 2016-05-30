@@ -88,7 +88,7 @@ public:
 
         void addHypo(float thoStar, float sigmaStar, RcHighGradientPoint* match)
         {
-            hypothesesRelation[match] = hypotheses.size();
+//            hypothesesRelation[match] = hypotheses.size();
             hypotheses.push_back(make_pair(thoStar, sigmaStar));
             hasHypo = true;
         }

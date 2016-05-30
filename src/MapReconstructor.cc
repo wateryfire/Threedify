@@ -535,6 +535,13 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 //        RcKeyPoint &kp1 = kpit.second;
         RcHighGradientPoint &kp1 = **it;
 
+//        if(kp1.fused)
+//        {
+//            highGradientPoints1.ref(kp1.pt.y, kp1.pt.x) = NULL;
+//            delete &kp1;
+//            continue;
+//        }
+
         // prepare data
         float intensity1 = kp1.intensity;
         float gradient1 = kp1.gradient;
@@ -598,8 +605,8 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float minSimilarityError = MatchAlongEpipolarLine(matchedCord, kp1, highGradientPoints2, medianRotation, u0, u1, v0, v1, a, b, c);
 
         // use the best match point to estimate the distribution
-        if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
-
+        if(minSimilarityError >=0 && minSimilarityError<1.0e+3)
+        {
 //            RcKeyPoint &match = keyPoints2.at(matchedCord);
             RcHighGradientPoint &match = *highGradientPoints2.ref(matchedCord.y, matchedCord.x);
 
@@ -663,8 +670,8 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcHighGradi
     float minV = 0, maxV = 0;
 
     float offset = mEpipolarSearchOffset, dx, dy;
-    float offsetU = sqrt(offset * offset * a * a / (a*a + b*b));
-    float offsetV = sqrt(offset * offset * b * b / (a*a + b*b));
+    float offsetU = sqrt(2.0f * offset * offset * a * a / (a*a + b*b));
+    float offsetV = sqrt(2.0f * offset * offset * b * b / (a*a + b*b));
 
     bool paralledWithYAxis = (b==0 || fabs(-a / b) > (float)(mHeight/(2*offset)));
 
@@ -743,7 +750,8 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcHighGradi
                 float similarityError = CheckEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation);
 
                 // update the best match point
-                if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError){
+                if((minSimilarityError < 0 && similarityError >=0) || minSimilarityError > similarityError)
+                {
                     minSimilarityError = similarityError;
                     matchedCord.x = cordP.x;
                     matchedCord.y = cordP.y;
@@ -1027,7 +1035,8 @@ float MapReconstructor::CheckEpipolarLineConstraient(RcHighGradientPoint &kp1, R
 
 //    angleDiff = fabs(angleDiff);
 
-//    if(angleDiff >= lambdaThe){
+//    if(angleDiff >= lambdaThe)
+//    {
 //        return similarityError;
 //    }
 
@@ -1223,7 +1232,7 @@ void MapReconstructor::FuseHypo(KeyFrame* pKF)
         kp1.fused = true;
 
         // set hypotheses fuse flag
-//        map<RcKeyPoint*,int> &rel = kp1.hypothesesRelation;
+//        map<RcHighGradientPoint*,int> &rel = kp1.hypothesesRelation;
 //        for(auto &kpit2 : rel)
 //        {
 //            int fxidx = kpit2.second;
@@ -1231,8 +1240,9 @@ void MapReconstructor::FuseHypo(KeyFrame* pKF)
 //            {
 //                if(fsi == fxidx)
 //                {
-//                    RcKeyPoint* pkp2 = kpit2.first;
+//                    RcHighGradientPoint* pkp2 = kpit2.first;
 //                    pkp2->fused = true;
+////                    delete pkp2;
 //                }
 //            }
 //        }
@@ -1262,7 +1272,8 @@ void MapReconstructor::IntraKeyFrameChecking(KeyFrame* pKF)
 
         vector<int> matchedIndexes;
         int index = 0;
-        kp1.eachNeighbourCords([&](float x, float y){
+        kp1.eachNeighbourCords([&](float x, float y)
+        {
 //            if(keyPoints.count(pt))
 //            {
 //                RcKeyPoint &kpn = keyPoints.at(pt);
@@ -1430,8 +1441,6 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 //            RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
             RcHighGradientPoint &kp1 = **it;
 //            RcKeyPoint &kp1 = kpit.second;
-            vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
-            set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
 
             if(!kp1.fused /*|| !kp1.intraCheckCount*/)
             {
@@ -1463,18 +1472,13 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 
             // Xba(p) = K.inv() * xp
             cv::Mat xp1 = (cv::Mat_<float>(1,3) << (x-pKF->cx)*pKF->invfx, (y-pKF->cy)*pKF->invfy, 1.0);
-//            cout<<"xp1 "<<xp1<<endl;
             float invTho = 1.0/tho1;
             cv::Mat D = (Mat_<float>(3,3) << invTho,0,0,0, invTho,0,0,0, invTho);
-//            cout<<"D "<<D<<endl;
             Mat KRD = KR*D;
-//            cout<<"KRD "<<KRD<<endl;
 
             // project to neighbour keyframe
             Mat xj = KRD*xp1.t() + Kt;
             float tho2 = tho1 / (rjiz.dot(xp1) + tho1 * tjiz);
-//            cout<<"xj "<<xj<<endl;
-//            cout<<"tho2 "<<tho2<<endl;
 
             // check neighbours
             float uj = xj.at<float>(0) / xj.at<float>(2), vj = xj.at<float>(1) / xj.at<float>(2);
@@ -1491,6 +1495,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
             neighbours.push_back(Point2f(floor(uj), ceil(vj)));
             neighbours.push_back(Point2f(ceil(uj), floor(vj)));
             neighbours.push_back(Point2f(ceil(uj), ceil(vj)));
+            int validProjectCount = 0;
             for (const Point2f &p: neighbours)
             {/*
                 if(keyPoints2.count(p))
@@ -1508,7 +1513,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
                         // Ka test
                         if((tho2 - tho2n) * (tho2 - tho2n) / sigma2nSquare < 3.84)
                         {
-                            validPoints.push_back(kp1);
+                            validProjectCount ++;
 
                             // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquar
                             vector<float> params;
@@ -1517,16 +1522,26 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
                             params.push_back(tjiz);
                             params.push_back(sigma2nSquare);
 
+                            vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
                             depthErrorEstimateFactor.push_back(params);
+
+                            set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
                             depthErrorKeyframe.insert(pKF2);
                         }
                     }
                 }
             }
+            if(validProjectCount)
+            {
+                validPoints.push_back(kp1);
+            }
         }
 
         count++;
-        if(count==mKN) break;
+        if(count==mKN)
+        {
+            break;
+        }
     }
 
     int validIndex = 0;
@@ -1562,13 +1577,15 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 
 void MapReconstructor::AddPointToMap(RcHighGradientPoint &kp1, KeyFrame* pKF)
 {
-    if(kp1.intraCheckCount && kp1.interCheckCount){
+    if(kp1.intraCheckCount && kp1.interCheckCount)
+    {
 
         float zh = 1.0/kp1.tho;
 //        float error = fabs(kp1.mDepth-zh);
         if(zh>0)
         {
-//            /if(error >= errorTolerenceFactor * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/){
+//            /if(error >= errorTolerenceFactor * kp1.mDepth /*&& error<0.1 * kp1.mDepth*/)
+//            {
 ////                kp1.mDepth = zh;
 //                kp1.tho = (1.0f/(errorTolerenceFactor * kp1.mDepth * kp1.mDepth) + kp1.tho/(kp1.sigma*kp1.sigma))/(1.0f/(errorTolerenceFactor * kp1.mDepth) + 1.0f/(kp1.sigma * kp1.sigma));
 //                zh = 1.0f / kp1.tho;
@@ -1596,14 +1613,13 @@ void MapReconstructor::AddPointToMap(RcHighGradientPoint &kp1, KeyFrame* pKF)
 //        kp1.mDepth = zh;
 
         cv::Mat x3D = UnprojectStereo(kp1, pKF);
-        if(!x3D.empty()){
-
+        if(!x3D.empty())
+        {
             uchar grey  = kp1.intensity;
             cv::Mat rgb = (cv::Mat_<float>(3,1) <<grey,grey,grey);
             MapPoint* pMP = new MapPoint(x3D,pKF,mpMap,rgb);
             pMP->UpdateNormalAndDepth();
             mpMap->AddMapPoint(pMP);
-
         }
     }
 
