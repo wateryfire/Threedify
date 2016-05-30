@@ -17,7 +17,7 @@ bool measuredDepthConstraient = true;
 bool needRectify = false;
 float baselineThres;
 
-map<size_t, SparseMat_<MapReconstructor::RcKeyPoint*> > keyframeKeyPointsMat;
+map<size_t, SparseMat_<MapReconstructor::RcHighGradientPoint*> > keyFrameHighGradientPointsMat;
 
 MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
         mpMap(pMap)
@@ -184,10 +184,10 @@ void MapReconstructor::ExtractEdgeProfile(KeyFrame *pKeyFrame)
     // ? loss of precies
     normalize(modulo, modulo, 0x00, 0xFF, NORM_MINMAX, CV_32F);
 
-    HighGradientAreaKeyPoints(modulo,orientation, pKeyFrame, mLambdaG);
+    HighGradientAreaPoints(modulo,orientation, pKeyFrame, mLambdaG);
 }
 
-void MapReconstructor::HighGradientAreaKeyPoints(Mat &gradient, Mat &orientation, KeyFrame *pKF, const float gradientThreshold)
+void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, KeyFrame *pKF, const float gradientThreshold)
 {
     Mat &image = pKF->mRefImgGray;
     Mat &depths = pKF->mRefImgDepth;
@@ -197,7 +197,7 @@ void MapReconstructor::HighGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 //    map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
     int dims = 2;
     int size[] = {mHeight, mWidth};
-    SparseMat_<RcKeyPoint*> keyPoints = SparseMat_<RcKeyPoint*>(dims, size);
+    SparseMat_<RcHighGradientPoint*> highGradientPoints = SparseMat_<RcHighGradientPoint*>(dims, size);
     map<Point2f, vector<float>*, Point2fLess> neighbourMsgCache;
 
     int matsize=0;
@@ -239,7 +239,7 @@ void MapReconstructor::HighGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 
             float angle = po[col];
 //            cout<<"intensity "<<saturate_cast<float>(intensity)<<" angle "<<angle<<" gradientModulo "<<saturate_cast<float>(gradientModulo)<<endl;
-            RcKeyPoint *hgkp = new RcKeyPoint(col, row,intensity,gradientModulo,angle,0,depth);
+            RcHighGradientPoint *hgkp = new RcHighGradientPoint(col, row,intensity,gradientModulo,angle,0,depth);
 
             // fill neighbour info
             bool outOfRange = false;
@@ -289,13 +289,13 @@ void MapReconstructor::HighGradientAreaKeyPoints(Mat &gradient, Mat &orientation
 //            hgkp.ptu.y=mat.at<float>(0,1);
 
 //            keyPoints[cord] = hgkp;
-            keyPoints.ref(row, col) = hgkp;
+            highGradientPoints.ref(row, col) = hgkp;
             matsize++;
         }
     }
-    cout<<"keyPoints size "<<matsize<<endl;
+    cout<<"highGradientPoints size "<<matsize<<endl;
 //    keyframeKeyPointsMap[pKF->mnId] = keyPoints;
-    keyframeKeyPointsMat[pKF->mnId] = keyPoints;
+    keyFrameHighGradientPointsMat[pKF->mnId] = highGradientPoints;
 }
 
 void MapReconstructor::RunToReconstructMap()
@@ -329,7 +329,7 @@ void MapReconstructor::RunToReconstructMap()
 
         bool frameValid = (mlpKFQueueForReonstruction.size() > (size_t)10);
 //        if (frameValid || !keyframeKeyPointsMap.count(currentKeyFrame->mnId))
-        if (frameValid || !keyframeKeyPointsMat.count(currentKeyFrame->mnId))
+        if (frameValid || !keyFrameHighGradientPointsMat.count(currentKeyFrame->mnId))
         {
             //Get Mutex-lock to access the queue of key frames.
             {
@@ -340,7 +340,7 @@ void MapReconstructor::RunToReconstructMap()
             retryCount=0;
 
 //            if(keyframeKeyPointsMap.count(currentKeyFrame->mnId))
-            if(keyframeKeyPointsMat.count(currentKeyFrame->mnId))
+            if(keyFrameHighGradientPointsMat.count(currentKeyFrame->mnId))
             {
 //                map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(currentKeyFrame->mnId);
 
@@ -372,7 +372,7 @@ void MapReconstructor::RunToReconstructMap()
         {
             currentKeyFrameInterChecking = interKeyFrameCheckingStack.front();
 //            if(keyframeKeyPointsMap.count(currentKeyFrameInterChecking->mnId))
-            if(keyframeKeyPointsMat.count(currentKeyFrameInterChecking->mnId))
+            if(keyFrameHighGradientPointsMat.count(currentKeyFrameInterChecking->mnId))
             {
                 InterKeyFrameChecking(currentKeyFrameInterChecking);
             }
@@ -424,7 +424,7 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
         vector<pair<size_t,size_t> > vMatchedIndices;
         long mnid2 = pKF2->mnId;
 //        if(!keyframeKeyPointsMap.count(mnid2))
-        if(!keyframeKeyPointsMat.count(mnid2))
+        if(!keyFrameHighGradientPointsMat.count(mnid2))
         {
             cout << "keyframe data not extracted yet: " << mnid2 << endl;
             continue;
@@ -455,7 +455,7 @@ void MapReconstructor::CreateNewMapPoints(KeyFrame* mpCurrentKeyFrame)
     }
 }
 
-cv::Mat MapReconstructor::UnprojectStereo(RcKeyPoint &p,KeyFrame *pKF)
+cv::Mat MapReconstructor::UnprojectStereo(RcHighGradientPoint &p,KeyFrame *pKF)
 {
     float z = p.mDepth;
     const float u = p.pt.x;
@@ -513,8 +513,8 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
     cout<<"epipcolar constraient search between "<<mnid1<<" "<<mnid2<<endl;
 //    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(mnid1);
 //    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
-    SparseMat_<RcKeyPoint*> &keyPoints1 = keyframeKeyPointsMat.at(mnid1);
-    SparseMat_<RcKeyPoint*> &keyPoints2 = keyframeKeyPointsMat.at(mnid2);
+    SparseMat_<RcHighGradientPoint*> &highGradientPoints1 = keyFrameHighGradientPointsMat.at(mnid1);
+    SparseMat_<RcHighGradientPoint*> &highGradientPoints2 = keyFrameHighGradientPointsMat.at(mnid2);
 
     // get median rotation between KFs
     float medianRotation = CalcMedianRotation(pKF1,pKF2);
@@ -526,14 +526,14 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 
     // search for each point in first image
 //    for(auto &kpit : keyPoints1)
-    SparseMatIterator_<RcKeyPoint*>
-        it = keyPoints1.begin(),
-        it_end = keyPoints1.end();
+    SparseMatIterator_<RcHighGradientPoint*>
+        it = highGradientPoints1.begin(),
+        it_end = highGradientPoints1.end();
     for(; it != it_end; ++it)
     {
 //        RcKeyPoint &kp1 = *(it.ref<RcKeyPoint*>());
 //        RcKeyPoint &kp1 = kpit.second;
-        RcKeyPoint &kp1 = **it;
+        RcHighGradientPoint &kp1 = **it;
 
         // prepare data
         float intensity1 = kp1.intensity;
@@ -595,13 +595,13 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         float v0 = pKF1->cy + (rjiy.dot(xp1) + thoMax * tjiy) / (rjiz.dot(xp1) + thoMax*tjiz) * pKF1->fy;
         float v1 = pKF1->cy + (rjiy.dot(xp1) + thoMin * tjiy) / (rjiz.dot(xp1) + thoMin*tjiz) * pKF1->fy;
 
-        float minSimilarityError = MatchAlongEpipolarLine(matchedCord, kp1, keyPoints2, medianRotation, u0, u1, v0, v1, a, b, c);
+        float minSimilarityError = MatchAlongEpipolarLine(matchedCord, kp1, highGradientPoints2, medianRotation, u0, u1, v0, v1, a, b, c);
 
         // use the best match point to estimate the distribution
         if(minSimilarityError >=0 && minSimilarityError<1.0e+3){
 
 //            RcKeyPoint &match = keyPoints2.at(matchedCord);
-            RcKeyPoint &match = *keyPoints2.ref(matchedCord.y, matchedCord.x);
+            RcHighGradientPoint &match = *highGradientPoints2.ref(matchedCord.y, matchedCord.x);
 
             // subpixel estimation:
             // approximate intensity gradient along epipolar line : g=(I(uj + 1)-I(uj - 1))/2;
@@ -656,7 +656,7 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
 }
 
 //float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
-float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint &kp1, SparseMat_<RcKeyPoint*> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
+float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcHighGradientPoint &kp1, SparseMat_<RcHighGradientPoint*> &highGradientPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c)
 {
     float minSimilarityError = -1;
     float minU = min(u0, u1), maxU = max(u0, u1);
@@ -734,10 +734,10 @@ float MapReconstructor::MatchAlongEpipolarLine(Point2f &matchedCord, RcKeyPoint 
             cordP.x = round(disp.x);
             cordP.y= round(disp.y);
 //            if(keyPoints2.count(cordP))
-            if(keyPoints2.ptr(cordP.y, cordP.x, false)  != NULL)
+            if(highGradientPoints2.ptr(cordP.y, cordP.x, false)  != NULL)
             {
 //                RcKeyPoint &kp2 = keyPoints2.at(cordP);
-                RcKeyPoint &kp2 = *keyPoints2.ref(cordP.y, cordP.x);
+                RcHighGradientPoint &kp2 = *highGradientPoints2.ref(cordP.y, cordP.x);
                 //if(!kp2.fused)
                 //{
                 float similarityError = CheckEpipolarLineConstraient(kp1, kp2, a, b, c ,medianRotation);
@@ -789,7 +789,7 @@ void MapReconstructor::Distort(Point2f &point, KeyFrame* pKF)
     point.y = yDistort;
 }
 
-bool MapReconstructor::GetSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV )
+bool MapReconstructor::GetSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcHighGradientPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV )
 {
     //Uproject lower and upper point from KF1 to world
      //Uproject lower and upper point from KF1 to world
@@ -806,7 +806,7 @@ bool MapReconstructor::GetSearchAreaForWorld3DPointInKF ( KeyFrame* const  pKF1,
     if(z>1 && z<8)  //todo: to configurable, depth <= 1m is not good for RGBD sensor, depth >=8 m cause the depth distribution not sensitive.
     {
 
-        float ZcBound[] = {0.95*z, 1.05*z};  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
+        float ZcBound[] = {(float)0.95*z, (float)1.05*z};  //todo: to configurable, assume the depth estimation has 5% portion of accuracy deviation
    
         const float u = twoDPoint.pt.x;
         const float v = twoDPoint.pt.y;
@@ -986,7 +986,7 @@ bool MapReconstructor::CalCordBounds(Point2f &startCordRef, Point2f &endCordRef,
     return true;
 }
 
-float MapReconstructor::CheckEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation)
+float MapReconstructor::CheckEpipolarLineConstraient(RcHighGradientPoint &kp1, RcHighGradientPoint &kp2, float a, float b, float c, float medianRotation)
 {
     float similarityError = -1.0;
     // prepare data
@@ -1194,16 +1194,16 @@ void MapReconstructor::FuseHypo(KeyFrame* pKF)
     cout<< "enter fuse"<<endl;
     long kfid = pKF->mnId;
 //    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
-    SparseMat_<RcKeyPoint*> &keyPoints = keyframeKeyPointsMat.at(kfid);
+    SparseMat_<RcHighGradientPoint*> &highGradientPoints = keyFrameHighGradientPointsMat.at(kfid);
 //    for(auto &kpit : keyPoints)
-    SparseMatIterator_<RcKeyPoint*>
-        it = keyPoints.begin(),
-        it_end = keyPoints.end();
+    SparseMatIterator_<RcHighGradientPoint*>
+        it = highGradientPoints.begin(),
+        it_end = highGradientPoints.end();
     for(; it != it_end; ++it)
     {
 //        RcKeyPoint &kp1 = kpit.second;
 //        RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
-        RcKeyPoint &kp1 = **it;
+        RcHighGradientPoint &kp1 = **it;
         if(!kp1.hasHypo) continue;
 //        cout<<(int)kp1.intensity<<endl;
         vector<pair<float, float>> &hypos = kp1.hypotheses;
@@ -1244,16 +1244,16 @@ void MapReconstructor::IntraKeyFrameChecking(KeyFrame* pKF)
     cout<<"intraKeyFrameChecking "<<endl;
     long kfid = pKF->mnId;
 //    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints = keyframeKeyPointsMap.at(kfid);
-    SparseMat_<RcKeyPoint*> &keyPoints = keyframeKeyPointsMat.at(kfid);
+    SparseMat_<RcHighGradientPoint*> &highGradientPoints = keyFrameHighGradientPointsMat.at(kfid);
     //for(auto &kpit : keyPoints)
-    SparseMatIterator_<RcKeyPoint*>
-        it = keyPoints.begin(),
-        it_end = keyPoints.end();
+    SparseMatIterator_<RcHighGradientPoint*>
+        it = highGradientPoints.begin(),
+        it_end = highGradientPoints.end();
     for(; it != it_end; ++it)
     {
 //        RcKeyPoint &kp1 = kpit.second;
 //        RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
-        RcKeyPoint &kp1 = **it;
+        RcHighGradientPoint &kp1 = **it;
 //        RcKeyPoint &kp1 = kpit.second;
         //check neighbour hypos
         int neighbourHypos = 0;
@@ -1266,9 +1266,9 @@ void MapReconstructor::IntraKeyFrameChecking(KeyFrame* pKF)
 //            if(keyPoints.count(pt))
 //            {
 //                RcKeyPoint &kpn = keyPoints.at(pt);
-            if(keyPoints.ptr(y, x, false) !=NULL)
+            if(highGradientPoints.ptr(y, x, false) !=NULL)
             {
-                RcKeyPoint &kpn = *keyPoints.ref(y, x);
+                RcHighGradientPoint &kpn = *highGradientPoints.ref(y, x);
                 if(kpn.fused)
                 {
                     nbrhypos.push_back(make_pair(kpn.tho, kpn.sigma));
@@ -1367,7 +1367,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 {
     cout<<"interKeyFrameChecking" <<endl;
 //    map<Point2f,RcKeyPoint,Point2fLess> &keyPoints1 = keyframeKeyPointsMap.at(pKF->mnId);
-    SparseMat_<RcKeyPoint*> &keyPoints1 = keyframeKeyPointsMat.at(pKF->mnId);
+    SparseMat_<RcHighGradientPoint*> &highGradientPoints1 = keyFrameHighGradientPointsMat.at(pKF->mnId);
     int nn = mKN;
     nn*=2;
     vector<KeyFrame*> vpNeighKFs = pKF->GetBestCovisibilityKeyFrames(nn);
@@ -1375,7 +1375,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
     cv::Mat R1w = pKF->GetRotation();
     cv::Mat t1w = pKF->GetTranslation();
 
-    vector<RcKeyPoint> validPoints;
+    vector<RcHighGradientPoint> validPoints;
 
     // project neighbour error factors, list of djn, rjiz*xp, tjiz, sigmajnSquare
     map<Point2f,vector<vector<float> > ,Point2fLess> depthErrorEstimateFactors;
@@ -1388,7 +1388,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 
         long mnid2 = pKF2->mnId;
 //        if(!keyframeKeyPointsMap.count(mnid2))
-        if(!keyframeKeyPointsMat.count(mnid2))
+        if(!keyFrameHighGradientPointsMat.count(mnid2))
         {
             cout << "keyframe hypo data not exist: " << mnid2 << endl;
             continue;
@@ -1419,16 +1419,16 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
         float tjiz = t21.at<float>(2);
 
 //        map<Point2f,RcKeyPoint,Point2fLess> &keyPoints2 = keyframeKeyPointsMap.at(mnid2);
-        SparseMat_<RcKeyPoint*> &keyPoints2 = keyframeKeyPointsMat.at(mnid2);
+        SparseMat_<RcHighGradientPoint*> &highGradientPoints2 = keyFrameHighGradientPointsMat.at(mnid2);
 
 //        for(auto &kpit : keyPoints1)
-        SparseMatIterator_<RcKeyPoint*>
-            it = keyPoints1.begin(),
-            it_end = keyPoints1.end();
+        SparseMatIterator_<RcHighGradientPoint*>
+            it = highGradientPoints1.begin(),
+            it_end = highGradientPoints1.end();
         for(; it != it_end; ++it)
         {
 //            RcKeyPoint &kp1 = *(it.value<RcKeyPoint*>());
-            RcKeyPoint &kp1 = **it;
+            RcHighGradientPoint &kp1 = **it;
 //            RcKeyPoint &kp1 = kpit.second;
             vector<vector<float> > &depthErrorEstimateFactor = depthErrorEstimateFactors[kp1.pt];
             set<KeyFrame*> &depthErrorKeyframe = depthErrorKeyframes[kp1.pt];
@@ -1496,9 +1496,9 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
                 if(keyPoints2.count(p))
                 {
                     RcKeyPoint &kp2 = keyPoints2.at(p);*/
-                if(keyPoints2.ptr(p.y,p.x,false) != NULL)
+                if(highGradientPoints2.ptr(p.y,p.x,false) != NULL)
                 {
-                    RcKeyPoint &kp2 = *keyPoints2.ref(p.y,p.x);
+                    RcHighGradientPoint &kp2 = *highGradientPoints2.ref(p.y,p.x);
                     if(kp2.fused)
 //                    if(kp2.fused && !(kp2.interCheckCount > lambdaN))
                     {
@@ -1542,7 +1542,7 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
         return sumu/suml;
     };
 //    bool b = glambda(3, 3.14); // ok
-    for(RcKeyPoint &vkp: validPoints)
+    for(RcHighGradientPoint &vkp: validPoints)
     {
 //        cout<<"vkp.interCheckCount "<<vkp.interCheckCount<<endl;
         int count = (int)depthErrorKeyframes.at(vkp.pt).size();
@@ -1553,14 +1553,14 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
             float dpstar = estimate(params);
 //                    cout<<"create estimate "<<dpstar<<" former "<<1.0/vkp.tho<<endl;
                     vkp.tho = 1.0f/dpstar;
-            AddKeyPointToMap(vkp, pKF);
+            AddPointToMap(vkp, pKF);
         }
         validIndex++;
     }
 }
 
 
-void MapReconstructor::AddKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF)
+void MapReconstructor::AddPointToMap(RcHighGradientPoint &kp1, KeyFrame* pKF)
 {
     if(kp1.intraCheckCount && kp1.interCheckCount){
 

@@ -41,7 +41,7 @@ public:
     cv::Mat mDistCoef;
 
     // re-construction key point
-    struct RcKeyPoint
+    struct RcHighGradientPoint
     {
         cv::Point2f pt;
         float intensity;
@@ -58,7 +58,7 @@ public:
         // inverse depth hypotheses set
         vector<pair<float, float>> hypotheses;
         // indexed relation of hypotheses
-        map<RcKeyPoint*, int> hypothesesRelation;
+        map<RcHighGradientPoint*, int> hypothesesRelation;
 
         // final hypothese
         float tho = NAN;
@@ -75,9 +75,9 @@ public:
         /**
        * Constructor
        */
-        RcKeyPoint(){}
+        RcHighGradientPoint(){}
 
-        RcKeyPoint(float x, float y, float intensity, float gradient, float orientation,int octave,float depth):
+        RcHighGradientPoint(float x, float y, float intensity, float gradient, float orientation,int octave,float depth):
             pt(x,y), intensity(intensity), gradient(gradient),orientation(orientation),octave(octave),mDepth(depth),hasHypo(false),fused(false){}
 
         // with depth sensor
@@ -86,7 +86,7 @@ public:
             mDepth = depth;
         }
 
-        void addHypo(float thoStar, float sigmaStar, RcKeyPoint* match)
+        void addHypo(float thoStar, float sigmaStar, RcHighGradientPoint* match)
         {
             hypothesesRelation[match] = hypotheses.size();
             hypotheses.push_back(make_pair(thoStar, sigmaStar));
@@ -182,23 +182,23 @@ public:
     float mEpipolarSearchOffset;
 
     // key points for epipolar search
-    map<long, map<cv::Point2f,RcKeyPoint,Point2fLess> > mKeyframeKeyPointsMap;
+    map<long, map<cv::Point2f,RcHighGradientPoint,Point2fLess> > mKeyframeKeyPointsMap;
 
     bool CheckNewKeyFrames(KeyFrame* currentKeyFrame);
     void CreateNewMapPoints(KeyFrame* currentKeyFrame);
 
-    void HighGradientAreaKeyPoints(cv::Mat &gradient, cv::Mat &orientation, KeyFrame *pKF, const float gradientThreshold);
+    void HighGradientAreaPoints(cv::Mat &gradient, cv::Mat &orientation, KeyFrame *pKF, const float gradientThreshold);
     //void getApproximateOctave(KeyFrame *pKF,std::map<int,pair<float, float>> &octaveDepthMap);
 
-    cv::Mat UnprojectStereo(RcKeyPoint &p,KeyFrame *pKF);
+    cv::Mat UnprojectStereo(RcHighGradientPoint &p,KeyFrame *pKF);
     cv::Mat ComputeF12(KeyFrame *pKF1, KeyFrame *pKF2);
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
     void EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F12, vector<pair<size_t,size_t> > &vMatchedIndices);
 //    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, map<cv::Point2f,RcKeyPoint,Point2fLess> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
-    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcKeyPoint &kp1, cv::SparseMat_<RcKeyPoint*> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
+    float MatchAlongEpipolarLine(cv::Point2f &matchedCord, RcHighGradientPoint &kp1, cv::SparseMat_<RcHighGradientPoint*> &keyPoints2, float &medianRotation, float &u0 ,float &u1, float &v0, float &v1, const float &a, const float &b, const float &c);
     bool CalCordBounds(cv::Point2f &startCordRef, cv::Point2f &endCordRef, float mWidth, float mHeight, float a, float b,float c);
-    float CheckEpipolarLineConstraient(RcKeyPoint &kp1, RcKeyPoint &kp2, float a, float b, float c, float medianRotation);
-    float CalInverseDepthEstimation(RcKeyPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2);
+    float CheckEpipolarLineConstraient(RcHighGradientPoint &kp1, RcHighGradientPoint &kp2, float a, float b, float c, float medianRotation);
+    float CalInverseDepthEstimation(RcHighGradientPoint &kp1,const float u0Star,KeyFrame *pKF1, KeyFrame *pKF2);
     //bool CheckDistEpipolarLine(RcKeyPoint& kp1,RcKeyPoint& kp2,cv::Mat &F12,KeyFrame* pKF2);
     float CalcMedianRotation(KeyFrame* pKF1, KeyFrame* pKF2);
     //float calcInPlaneRotation(KeyFrame* pKF1, KeyFrame* pKF2);
@@ -208,11 +208,11 @@ public:
     void FuseHypo(KeyFrame* pKF);
     int KaTestFuse(std::vector<std::pair<float, float>> &hypos, float &tho, float &sigma, set<int> &nearest);
     void IntraKeyFrameChecking(KeyFrame* pKF);
-    void AddKeyPointToMap(RcKeyPoint &kp1, KeyFrame* pKF);
+    void AddPointToMap(RcHighGradientPoint &kp1, KeyFrame* pKF);
     void InterKeyFrameChecking(KeyFrame* pKF);
     void Distort(cv::Point2f &point, KeyFrame* pKF);
     
-    bool  GetSearchAreaForWorld3DPointInKF( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcKeyPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV );
+    bool  GetSearchAreaForWorld3DPointInKF( KeyFrame* const  pKF1, KeyFrame* const pKF2, const RcHighGradientPoint& twoDPoint,float& u0, float& v0, float& u1, float& v1, float& offsetU, float& offsetV );
 private:
 
 	//Extract and store the edge profile info for a key frame
