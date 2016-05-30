@@ -96,6 +96,7 @@ add_executable(mono_kitti
 Examples/Monocular/mono_kitti.cc)
 target_link_libraries(mono_kitti ${PROJECT_NAME})
 
+<<<<<<< HEAD
 # Build tools
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/tools)
 add_executable(bin_vocabulary
@@ -110,3 +111,5 @@ target_link_libraries(bin_vocabulary ${PROJECT_NAME})
 #target_link_libraries(CreateORBVoc
 #${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.so
 #)
+=======
+>>>>>>> 1a4fdfad8b29d0d49820d7a2466b1a362a80b0a3
