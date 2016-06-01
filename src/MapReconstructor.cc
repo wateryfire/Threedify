@@ -191,7 +191,6 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
 {
     Mat &image = pKF->mRefImgGray;
     Mat &depths = pKF->mRefImgDepth;
-
 //    GaussianBlur( depths, depths, Size(3,3), 0, 0, BORDER_DEFAULT );
 
 //    map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
