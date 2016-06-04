@@ -191,13 +191,14 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
 {
     Mat &image = pKF->mRefImgGray;
     Mat &depths = pKF->mRefImgDepth;
-//    GaussianBlur( depths, depths, Size(3,3), 0, 0, BORDER_DEFAULT );
 
 //    map<Point2f,RcKeyPoint,Point2fLess> keyPoints;
     int dims = 2;
     int size[] = {mHeight, mWidth};
     SparseMat_<RcHighGradientPoint*> highGradientPoints = SparseMat_<RcHighGradientPoint*>(dims, size);
     map<Point2f, vector<float>*, Point2fLess> neighbourMsgCache;
+
+    set<Point,Point2fLess> depthCurvature = DepthCurvatureFilter(depths);
 
     int matsize=0;
     for(int row = 0; row < image.rows; ++row)
@@ -206,9 +207,10 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
         float* pd = depths.ptr<float>(row);
         float* pg = gradient.ptr<float>(row);
         float* po = orientation.ptr<float>(row);
+
         for(int col = 0; col < image.cols; ++col) {
             float intensity = p[col];
-//            Point2f cord = Point2f(col, row);
+            Point cord = Point(col, row);
 
             if(!pKF->IsInImage(col, row))
             {
@@ -222,16 +224,8 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
             }
 
             // 1. filter with intensity threshold
-//            if(row<540 && col<540)
-//            {
-//                cv::Vec3f pixelHessianResponse = detH.at<cv::Vec3f>(row,col);
-//                if((pixelHessianResponse[0]+pixelHessianResponse[1]+pixelHessianResponse[2])/3 < depthGradientThres)
-//                continue;
-//            }
-//            cout<<pixelHessianResponse<<endl;
-            //            uchar gradientModulo = pg[col];
             float gradientModulo = pg[col];
-            if(gradientModulo <= gradientThreshold)
+            if((gradientModulo < gradientThreshold) && !(depthCurvature.count(cord) && gradientModulo>mTheta))
             {
                 continue;
             }
@@ -295,6 +289,116 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
     cout<<"highGradientPoints size "<<matsize<<endl;
 //    keyframeKeyPointsMap[pKF->mnId] = keyPoints;
     keyFrameHighGradientPointsMat[pKF->mnId] = highGradientPoints;
+}
+
+set<Point,MapReconstructor::Point2fLess> MapReconstructor::DepthCurvatureFilter(Mat &depths)
+{
+    set<Point,Point2fLess> cords;
+
+    cv::Mat Sx;
+    cv::Scharr( depths, Sx, CV_32F, 1, 0);
+
+    cv::Mat Sy;
+    cv::Scharr( depths, Sy, CV_32F, 0, 1);
+
+    int statStep = 14, signTurnThres=2;
+    int turnThres = (signTurnThres * statStep * 0.1);
+
+    int width = depths.size().width;
+    int height = depths.size().height;
+
+    int offset = 2;
+
+    for ( int v = 0; v < height; v++ )
+    {
+        int majorDir = 1;
+        int possitiveCount = statStep;
+        for(int u=0;u<width;u++)
+        {
+            float depth = depths.at<float>(v, u);
+            if(depth<0)
+            {
+                continue;
+            }
+
+            float quadent=Sx.at<float>(v,u);
+            if((quadent * majorDir < 0.0) && (possitiveCount > 0))
+            {
+                possitiveCount--;
+            }
+            else if((quadent * majorDir >= 0.0) && (possitiveCount < statStep))
+            {
+                possitiveCount++;
+            }
+            else
+            {
+                continue;
+            }
+
+            if(possitiveCount<turnThres)
+            {
+                //inverse
+                majorDir *=-1;
+                possitiveCount = (statStep - possitiveCount);
+
+                for(int c = u-possitiveCount - offset;c < u-possitiveCount + offset+1;c++)
+                {
+                    cords.insert(cv::Point( c, v));
+                }
+            }
+
+//            if(quadent > 0.5)
+//            {
+//                cords.insert(cv::Point( u, v ));
+//            }
+        }
+    }
+
+
+    for ( int u = 0; u < width; u++ )
+    {
+        int majorDir = 1;
+        int possitiveCount = statStep;
+        for(int v=0; v< height; v++)
+        {
+            float depth = depths.at<float>(v, u);
+            if(depth<0)
+            {
+                continue;
+            }
+
+            float quadent=Sy.at<float>(v, u);
+            if((quadent * majorDir < 0.0) && (possitiveCount > 0))
+            {
+                possitiveCount--;
+            }
+            else if((quadent * majorDir >= 0.0) && (possitiveCount < statStep))
+            {
+                possitiveCount++;
+            }
+            else
+            {
+                continue;
+            }
+
+            if(possitiveCount<turnThres)
+            {
+                //inverse
+                majorDir *=-1;
+                possitiveCount = (statStep - possitiveCount);
+                for(int c = v-possitiveCount - offset;c < v-possitiveCount + offset+1;c++)
+                {
+                    cords.insert(cv::Point( u, c));
+                }
+            }
+
+//            if(quadent > 0.5)
+//            {
+//                cords.insert(cv::Point( u, v ));
+//            }
+        }
+    }
+    return cords;
 }
 
 void MapReconstructor::RunToReconstructMap()
@@ -585,7 +689,7 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         if(measuredDepthConstraient)
         {
             tho0 = 1.0/kp1.mDepth;
-            sigmaEst = min(initVarienceFactor * (kp1.mDepth + 1.0f), sigma0);
+            sigmaEst = min((1.0f/(1.0f - initVarienceFactor) / kp1.mDepth - tho0) / 2.0f, sigma0);
         }
         ////////////////////////
 
@@ -1594,7 +1698,7 @@ void MapReconstructor::AddPointToMap(RcHighGradientPoint &kp1, KeyFrame* pKF)
 //            }*/
 //            kp1.mDepth = zh;
 
-            float mTho = 1.0f/kp1.mDepth, mSigma = initVarienceFactor * kp1.mDepth / 2.0f;
+            float mTho = 1.0f/kp1.mDepth, mSigma =  (1.0f/(1.0f - initVarienceFactor) / kp1.mDepth - mTho) / 2.0f;
             float diffSqa = (mTho - kp1.tho) * (mTho - kp1.tho);
             float sigmaSqi = mSigma * mSigma, sigmaSqj = kp1.sigma*kp1.sigma;
 

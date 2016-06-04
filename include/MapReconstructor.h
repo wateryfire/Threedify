@@ -188,6 +188,7 @@ public:
     void CreateNewMapPoints(KeyFrame* currentKeyFrame);
 
     void HighGradientAreaPoints(cv::Mat &gradient, cv::Mat &orientation, KeyFrame *pKF, const float gradientThreshold);
+    std::set<cv::Point,Point2fLess> DepthCurvatureFilter(cv::Mat &depths);
     //void getApproximateOctave(KeyFrame *pKF,std::map<int,pair<float, float>> &octaveDepthMap);
 
     cv::Mat UnprojectStereo(RcHighGradientPoint &p,KeyFrame *pKF);
