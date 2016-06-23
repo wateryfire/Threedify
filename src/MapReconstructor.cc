@@ -17,6 +17,8 @@ bool measuredDepthConstraient = true;
 bool needRectify = false;
 float baselineThres;
 
+bool enableDepthCurvature = false;
+
 map<size_t, SparseMat_<MapReconstructor::RcHighGradientPoint*> > keyFrameHighGradientPointsMat;
 
 MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
@@ -99,6 +101,7 @@ MapReconstructor::MapReconstructor(Map* pMap,  const string &strSettingPath):
     depthGradientThres = fSettings["ReConstruction.depthGradientThres"];
     needRectify = ((int)fSettings["ReConstruction.rectify"]==1);
     baselineThres = fSettings["ReConstruction.baselineThres"];
+    enableDepthCurvature = ((int)fSettings["ReConstruction.enableDepthCurvature"]==1);
 }
 
 void MapReconstructor::InsertKeyFrame(KeyFrame *pKeyFrame)
@@ -225,9 +228,19 @@ void MapReconstructor::HighGradientAreaPoints(Mat &gradient, Mat &orientation, K
 
             // 1. filter with intensity threshold
             float gradientModulo = pg[col];
-            if((gradientModulo < gradientThreshold) && !(depthCurvature.count(cord) && gradientModulo>mTheta))
+            if((gradientModulo < gradientThreshold))
             {
-                continue;
+                if(enableDepthCurvature)
+                {
+                    if(!(depthCurvature.count(cord) && gradientModulo>mTheta))
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    continue;
+                }
             }
 
             float angle = po[col];
@@ -689,12 +702,14 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
         if(measuredDepthConstraient)
         {
             tho0 = 1.0/kp1.mDepth;
-            sigmaEst = min((1.0f/(1.0f - initVarienceFactor) / kp1.mDepth - tho0) / 2.0f, sigma0);
+            sigmaEst = min((1.0f/(1.0f - initVarienceFactor) *tho0 - tho0) / 2.0f, sigma0);
         }
         ////////////////////////
 
         // inverse depth bounds
-        float thoMax = tho0 + 2.0f*sigmaEst, thoMin = tho0 - 2.0f*sigmaEst;
+//        float expandRatio = 2.0f;
+        float expandRatio = 3.84f;
+        float thoMax = tho0 + expandRatio*sigmaEst, thoMin = tho0 - expandRatio*sigmaEst;
 
         // unary ray through xp : Xba(p) = K.inv() * xp
         cv::Mat xp1 = (cv::Mat_<float>(1,3) << (xudist-pKF1->cx)*pKF1->invfx, (yudist-pKF1->cy)*pKF1->invfy, 1.0);
@@ -720,6 +735,7 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
             // u0star = u0 + (g(u0)*ri(u0) + 1/theta * q(u0) * rg(u0)) / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0) )
             // sigmau0star^2 = 2* si*si / (g(u0) * g(u0) + 1/theta * q(u0) * q(u0))
             float u0 = match.pt.x;
+            float v0 = match.pt.y;
 
             // neighbour info of this point
             vector<float> upper,lower;
@@ -744,19 +760,44 @@ void MapReconstructor::EpipolarConstraientSearch(KeyFrame *pKF1, KeyFrame *pKF2,
                 leftPart = 0;
                 errorSquare = max(initVarienceFactor, errorSquare);
             }
-            float u0Star = u0 + leftPart;
+
+            float u0Star = u0 + leftPart*fabs(b)/sqrt(a*a + b*b);
+            float v0Star = v0 + leftPart*fabs(a)/sqrt(a*a + b*b);
+            float cordEstimate;
+
+            auto estimateRho = [&](float u0OrV0Est)
+            {
+                if(fabs(b) > fabs(a))
+                {
+                    return (rjiz.dot(xp1) *(u0OrV0Est-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0OrV0Est-pKF1->cx) + pKF1->fx * tjix );
+                }
+                else
+                {
+                    return (rjiz.dot(xp1) *(u0OrV0Est-pKF1->cy) - pKF1->fy * rjiy.dot(xp1) ) / (-tjiz * (u0OrV0Est-pKF1->cy) + pKF1->fy * tjiy );
+                }
+            };
+
+            if(fabs(b) > fabs(a))
+            {
+                cordEstimate = u0Star;
+            }
+            else
+            {
+                cordEstimate = v0Star;
+            }
+
             float sigmaU0Star = sqrt( 2.0 * mSigmaI * mSigmaI /errorSquare );
 
             // inverse depth hypothese
-            float rho = (rjiz.dot(xp1) *(u0Star-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Star-pKF1->cx) + pKF1->fx * tjix );
+            float rho = estimateRho(cordEstimate);
             if(isnan(rho))
             {
                 continue;
             }
 
-            float u0Starl = u0Star - sigmaU0Star, u0Starr = u0Star + sigmaU0Star;
-            float rhoUpper = (rjiz.dot(xp1) *(u0Starr-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starr-pKF1->cx) + pKF1->fx * tjix );
-            float rhoLower = (rjiz.dot(xp1) *(u0Starl-pKF1->cx) - pKF1->fx * rjix.dot(xp1) ) / (-tjiz * (u0Starl-pKF1->cx) + pKF1->fx * tjix );
+            float cordEstimateLeft = cordEstimate - sigmaU0Star, cordEstimateRight = cordEstimate + sigmaU0Star;
+            float rhoUpper = estimateRho(cordEstimateRight);
+            float rhoLower = estimateRho(cordEstimateLeft);
             float sigmaRho = max(fabs(rhoUpper - rho),fabs(rhoLower - rho));
 
 //            cout<<"addHypo " <<rho << " " << sigmaRho<<endl;
@@ -1120,7 +1161,8 @@ float MapReconstructor::CheckEpipolarLineConstraient(RcHighGradientPoint &kp1, R
     {
         eplAngleDiff -= 360.0;
     }
-    if((mLambdaL <= eplAngleDiff && eplAngleDiff < (180.0-mLambdaL)) || ((180.0 + mLambdaL) <= eplAngleDiff && eplAngleDiff < (360.0-mLambdaL)) )
+    if((mLambdaL <= eplAngleDiff && eplAngleDiff < (180.0-mLambdaL))
+            || ((180.0 + mLambdaL) <= eplAngleDiff && eplAngleDiff < (360.0-mLambdaL)) )
     {
         return similarityError;
     }
@@ -1143,7 +1185,8 @@ float MapReconstructor::CheckEpipolarLineConstraient(RcHighGradientPoint &kp1, R
 //        return similarityError;
 //    }
 
-    if((mLambdaThe <= angleDiff && angleDiff < (180.0-mLambdaThe)) || ((180.0 + mLambdaThe) <= angleDiff && angleDiff < (360.0-mLambdaThe)) )
+    if((mLambdaThe <= angleDiff && angleDiff < (180.0-mLambdaThe))
+            || ((180.0 + mLambdaThe) <= angleDiff && angleDiff < (360.0-mLambdaThe)) )
     {
         return similarityError;
     }
@@ -1298,7 +1341,7 @@ void MapReconstructor::CalcSenceInverseDepthBounds(KeyFrame* pKF, float &tho0, f
 
 bool MapReconstructor::CordInImageBounds(float x, float y, int width, int height)
 {
-    return (x>=0.0 && x<=width && y>=0.0 && y<=height);
+    return (x>=0.0 && x<width && y>=0.0 && y<height);
 }
 
 void MapReconstructor::FuseHypo(KeyFrame* pKF)
@@ -1475,7 +1518,6 @@ int MapReconstructor::KaTestFuse(vector<pair<float, float>> &hypos, float &tho, 
     }
     return fusedCount;
 }
-
 
 void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 {
