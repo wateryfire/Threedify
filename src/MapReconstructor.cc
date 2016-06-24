@@ -1623,8 +1623,17 @@ void MapReconstructor::InterKeyFrameChecking(KeyFrame* pKF)
 
             // project to neighbour keyframe
             Mat xj = KRD*xp1.t() + Kt;
-            float tho2 = tho1 / (rjiz.dot(xp1) + tho1 * tjiz);
 
+            // Check parallax between rays
+            cv::Mat rayS1 = R1w.t()*xp1.t();
+            cv::Mat rayS2 = R2w.t()*xj;
+            const float cosParallaxRaysStart = rayS1.dot(rayS2)/(cv::norm(rayS1)*cv::norm(rayS2));
+            if(cosParallaxRaysStart<=0 || cosParallaxRaysStart>=0.9998)
+            {
+                continue;
+            }
+
+            float tho2 = tho1 / (rjiz.dot(xp1) + tho1 * tjiz);
             // check neighbours
             float uj = xj.at<float>(0) / xj.at<float>(2), vj = xj.at<float>(1) / xj.at<float>(2);
             Point2f disp = Point2f(uj, vj);

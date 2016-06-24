@@ -96,5 +96,5 @@ ReConstruction.initVarienceFactor: 0.03
 ReConstruction.depthGradientThres: 11.0
 ReConstruction.disableMeasuredDepthConstraient: 0
 ReConstruction.rectify: 0
-ReConstruction.baselineThres: 0.05
+ReConstruction.baselineThres: 0.01
 ReConstruction.enableDepthCurvature: 0
